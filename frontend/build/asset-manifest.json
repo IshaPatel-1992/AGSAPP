@@ -1,0 +1,17 @@
+{
+  "files": {
+    "main.css": "/static/css/main.b3c4db1f.css",
+    "main.js": "/static/js/main.ae4093e1.js",
+    "static/media/SudarkandEvent2026.png": "/static/media/SudarkandEvent2026.b11c1fc47ba9973869ea.png",
+    "static/media/shutterstock_2506871797.jpg": "/static/media/shutterstock_2506871797.8269a7cf64dadd375c8e.jpg",
+    "static/media/Team1.jpg": "/static/media/Team1.e89700f3aa3caf7e96dd.jpg",
+    "static/media/Airdrie-Samaj-Logo-png.png": "/static/media/Airdrie-Samaj-Logo-png.9683689adbfa5263fd17.png",
+    "index.html": "/index.html",
+    "main.b3c4db1f.css.map": "/static/css/main.b3c4db1f.css.map",
+    "main.ae4093e1.js.map": "/static/js/main.ae4093e1.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.b3c4db1f.css",
+    "static/js/main.ae4093e1.js"
+  ]
+}

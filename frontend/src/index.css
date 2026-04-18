@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Google Fonts */
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap");
+
+/* Global font setup */
+@layer base {
+  html {
+    font-family: "Inter", sans-serif;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-heading text-brand-maple font-extrabold tracking-tight;
+  }
+
+  p {
+    @apply text-brand-text leading-relaxed font-normal;
+  }
+
+  section {
+    @apply py-20 px-6;
+  }
+}
