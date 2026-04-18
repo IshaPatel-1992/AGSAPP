@@ -38,20 +38,30 @@ export default function MembershipInfo() {
     const user = localStorage.getItem("member");
 
     if (user) {
-      // 🔥 Redirect to dashboard instead of form
       navigate("/membershipdashboard", {
         state: { selectedMembershipType: membershipType },
       });
-    } else {
-      navigate("/signup", { state: { membershipType } });
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "You need to log in first to apply for membership. Press OK to go to Login page."
+    );
+
+    if (confirmed) {
+      navigate("/login", {
+        state: { membershipType },
+      });
     }
   };
 
   return (
     <section className="relative w-full overflow-hidden">
       <div className="relative z-20 p-6 sm:p-10 max-w-5xl mx-auto animate-fadeIn">
-
-        <h2 className="text-3xl sm:text-4xl font-bold text-center mb-10" style={{ color: "#d4503e" }}>
+        <h2
+          className="text-3xl sm:text-4xl font-bold text-center mb-10"
+          style={{ color: "#d4503e" }}
+        >
           Membership
         </h2>
 
@@ -63,19 +73,18 @@ export default function MembershipInfo() {
           Membership Options
         </h3>
 
-        {/* Loading */}
         {loading && (
-          <p className="text-center text-gray-500">Loading membership options...</p>
+          <p className="text-center text-gray-500">
+            Loading membership options...
+          </p>
         )}
 
-        {/* Error */}
         {error && (
           <div className="text-center text-red-600 bg-red-50 border border-red-200 p-4 rounded-xl">
             {error}
           </div>
         )}
 
-        {/* Cards */}
         {!loading && !error && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {memberships.map((m) => (
@@ -94,7 +103,6 @@ export default function MembershipInfo() {
                   {m.description}
                 </p>
 
-                {/* 🔥 Discount badge */}
                 {m.is_discount_active && (
                   <div className="text-center mb-3">
                     <span className="inline-block px-3 py-1 rounded-full bg-red-100 text-red-600 text-xs font-bold">
@@ -128,7 +136,6 @@ export default function MembershipInfo() {
           </div>
         )}
 
-        {/* CTA */}
         <div className="text-center mt-12">
           <p className="mb-4 text-lg">
             Ready to join? Membership registration will open soon. Stay tuned!

@@ -21,7 +21,6 @@ export default function Signup() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // 🔥 ADD THIS BLOCK (same as Login page)
   useEffect(() => {
     const finishMicrosoftSignup = async () => {
       try {
@@ -32,7 +31,6 @@ export default function Signup() {
 
         let account = redirectResult?.account;
 
-        // fallback if redirectResult is null
         if (!account) {
           const accounts = instance.getAllAccounts();
           if (accounts.length > 0) {
@@ -111,6 +109,8 @@ export default function Signup() {
             last_login: result.last_login,
           };
 
+          setMessage("Signup successful! Redirecting to dashboard...");
+
           setTimeout(() => {
             goNext(memberData);
           }, 1000);
@@ -133,7 +133,10 @@ export default function Signup() {
     try {
       setLoading(true);
       setMessage("");
-      await instance.loginRedirect(loginRequest);
+      await instance.loginRedirect({
+        ...loginRequest,
+        prompt: "select_account",
+      });
     } catch (error) {
       console.error("Microsoft login error:", error);
       setMessage(error?.message || "Microsoft sign-in failed.");
@@ -183,10 +186,18 @@ export default function Signup() {
   const controlClass =
     "w-full h-[48px] px-4 rounded-lg border border-gray-300 text-sm flex items-center justify-center gap-3 hover:bg-gray-50 transition disabled:opacity-60";
 
+  const inputClass =
+    "w-full h-[48px] px-4 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-yellow-200";
+
   return (
-    <section className="min-h-screen flex items-center justify-center px-4 py-12 bg-gray-100">
-      <div className="w-full max-w-md bg-white p-6 rounded-xl shadow">
-        <h1 className="text-2xl font-bold text-center mb-2">Create Account</h1>
+    <section className="min-h-screen bg-brand-cream flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6 sm:p-8">
+        <div className="text-center mb-6">
+          <h1 className="text-3xl font-bold text-brand">Create Account</h1>
+          <p className="text-gray-600 mt-2">
+            Join as a member to continue.
+          </p>
+        </div>
 
         {membershipType && (
           <p className="text-center text-sm text-gray-600 mb-4">
@@ -201,7 +212,12 @@ export default function Signup() {
             className={controlClass}
             disabled={loading}
           >
-            Continue with Google
+            <img
+              src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+              alt="Google"
+              className="w-5 h-5"
+            />
+            <span className="text-gray-700">Continue with Google</span>
           </button>
 
           <button
@@ -210,24 +226,96 @@ export default function Signup() {
             className={controlClass}
             disabled={loading}
           >
-            Continue with Microsoft
+            <div className="grid grid-cols-2 gap-[2px] w-5 h-5 overflow-hidden rounded-sm">
+              <div className="bg-[#F25022]" />
+              <div className="bg-[#7FBA00]" />
+              <div className="bg-[#00A4EF]" />
+              <div className="bg-[#FFB900]" />
+            </div>
+            <span className="text-gray-700">Continue with Microsoft</span>
           </button>
         </div>
 
-        <form onSubmit={handleSignup} className="space-y-4">
-          <input name="full_name" placeholder="Full Name" onChange={handleChange} required />
-          <input name="email" placeholder="Email" onChange={handleChange} required />
-          <input name="password" type="password" placeholder="Password" onChange={handleChange} required />
-          <input name="confirm_password" type="password" placeholder="Confirm Password" onChange={handleChange} required />
+        <div className="relative my-6">
+          <div className="border-t" />
+          <span className="absolute left-1/2 -translate-x-1/2 -top-3 bg-white px-3 text-sm text-gray-500">
+            Or sign up with email
+          </span>
+        </div>
 
-          <button type="submit" disabled={loading}>
-            {loading ? "Creating..." : "Sign Up"}
+        <form onSubmit={handleSignup} className="space-y-4">
+          <input
+            type="text"
+            name="full_name"
+            placeholder="Full Name"
+            value={formData.full_name}
+            onChange={handleChange}
+            className={inputClass}
+            required
+          />
+
+          <input
+            type="email"
+            name="email"
+            placeholder="Email Address"
+            value={formData.email}
+            onChange={handleChange}
+            className={inputClass}
+            required
+          />
+
+          <input
+            type="password"
+            name="password"
+            placeholder="Password"
+            value={formData.password}
+            onChange={handleChange}
+            className={inputClass}
+            required
+          />
+
+          <input
+            type="password"
+            name="confirm_password"
+            placeholder="Confirm Password"
+            value={formData.confirm_password}
+            onChange={handleChange}
+            className={inputClass}
+            required
+          />
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full h-[48px] bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition disabled:opacity-60"
+          >
+            {loading ? "Creating..." : "Create Account"}
           </button>
         </form>
 
-        {message && <p>{message}</p>}
+        {message && (
+          <p
+            className={`text-sm text-center mt-4 ${
+              message.toLowerCase().includes("successful") ||
+              message.toLowerCase().includes("redirecting")
+                ? "text-green-600"
+                : "text-red-500"
+            }`}
+          >
+            {message}
+          </p>
+        )}
 
-        <Link to="/login">Already have an account?</Link>
+        <p className="text-center text-sm text-gray-600 mt-6">
+          Already have an account?{" "}
+          <Link
+            to="/login"
+            state={{ membershipType }}
+            className="text-brand font-semibold hover:underline"
+          >
+            Sign in
+          </Link>
+        </p>
       </div>
     </section>
   );

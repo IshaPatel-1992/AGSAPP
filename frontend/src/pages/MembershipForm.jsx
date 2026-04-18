@@ -50,6 +50,14 @@ const createChild = () => ({
   relation: "Child",
 });
 
+const createEmptyErrors = () => ({
+  mainContactName: "",
+  email: "",
+  phone: "",
+  adults: [],
+  kids: [],
+});
+
 export default function MembershipForm() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -62,6 +70,7 @@ export default function MembershipForm() {
   const [pricingLoading, setPricingLoading] = useState(false);
   const [pricingError, setPricingError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [errors, setErrors] = useState(createEmptyErrors());
 
   const [formData, setFormData] = useState({
     membershipType: location.state?.membershipType || "",
@@ -77,6 +86,30 @@ export default function MembershipForm() {
     () => membershipConfig[formData.membershipType],
     [formData.membershipType]
   );
+
+  const inputClass = (hasError) =>
+    `w-full border rounded-lg px-4 py-2 outline-none transition ${
+      hasError
+        ? "border-red-500 focus:ring-2 focus:ring-red-200"
+        : "border-gray-300 focus:ring-2 focus:ring-yellow-200"
+    }`;
+
+  const nameRegex = /^[A-Za-z]+(?:\s+[A-Za-z]+)+$/;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const phoneRegex = /^\d{10}$/;
+
+  const isValidDOB = (dob) => {
+    if (!dob) return false;
+
+    const date = new Date(dob);
+    if (isNaN(date.getTime())) return false;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    date.setHours(0, 0, 0, 0);
+
+    return date < today;
+  };
 
   useEffect(() => {
     const savedMember = localStorage.getItem("member");
@@ -168,6 +201,8 @@ export default function MembershipForm() {
       adults: Array.from({ length: config.adults }, () => createAdult()),
       kids: Array.from({ length: config.kids }, () => createChild()),
     }));
+
+    setErrors(createEmptyErrors());
   }, [formData.membershipType, editMode]);
 
   useEffect(() => {
@@ -209,14 +244,41 @@ export default function MembershipForm() {
 
   const handleBasicChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    let newValue = value;
+
+    if (name === "phone") {
+      newValue = value.replace(/\D/g, "").slice(0, 10);
+    }
+
+    setFormData((prev) => ({ ...prev, [name]: newValue }));
+
+    setErrors((prev) => ({
+      ...prev,
+      [name]: "",
+    }));
   };
 
   const updateAdult = (index, field, value) => {
+    let newValue = value;
+
+    if (field === "phone") {
+      newValue = value.replace(/\D/g, "").slice(0, 10);
+    }
+
     setFormData((prev) => {
       const updated = [...prev.adults];
-      updated[index] = { ...updated[index], [field]: value };
+      updated[index] = { ...updated[index], [field]: newValue };
       return { ...prev, adults: updated };
+    });
+
+    setErrors((prev) => {
+      const updatedAdultErrors = [...(prev.adults || [])];
+      updatedAdultErrors[index] = {
+        ...(updatedAdultErrors[index] || {}),
+        [field]: "",
+      };
+      return { ...prev, adults: updatedAdultErrors };
     });
   };
 
@@ -226,6 +288,15 @@ export default function MembershipForm() {
       updated[index] = { ...updated[index], [field]: value };
       return { ...prev, kids: updated };
     });
+
+    setErrors((prev) => {
+      const updatedKidErrors = [...(prev.kids || [])];
+      updatedKidErrors[index] = {
+        ...(updatedKidErrors[index] || {}),
+        [field]: "",
+      };
+      return { ...prev, kids: updatedKidErrors };
+    });
   };
 
   const addChild = () => {
@@ -233,11 +304,22 @@ export default function MembershipForm() {
       ...prev,
       kids: [...prev.kids, createChild()],
     }));
+
+    setErrors((prev) => ({
+      ...prev,
+      kids: [...(prev.kids || []), {}],
+    }));
   };
 
   const removeChild = (index) => {
     setFormData((prev) => {
       const updated = [...prev.kids];
+      updated.splice(index, 1);
+      return { ...prev, kids: updated };
+    });
+
+    setErrors((prev) => {
+      const updated = [...(prev.kids || [])];
       updated.splice(index, 1);
       return { ...prev, kids: updated };
     });
@@ -260,6 +342,74 @@ export default function MembershipForm() {
     }
 
     return age;
+  };
+
+  const validateBasicFields = () => {
+    const newErrors = createEmptyErrors();
+    let isValid = true;
+
+    if (!nameRegex.test(formData.mainContactName.trim())) {
+      newErrors.mainContactName =
+        "Please enter full name with first name and last name.";
+      isValid = false;
+    }
+
+    if (!emailRegex.test(formData.email.trim())) {
+      newErrors.email = "Please enter a valid email address.";
+      isValid = false;
+    }
+
+    if (!phoneRegex.test(formData.phone.trim())) {
+      newErrors.phone = "Phone number must be exactly 10 digits.";
+      isValid = false;
+    }
+
+    newErrors.adults = (formData.adults || []).map((adult) => {
+      const adultError = {};
+
+      if (!nameRegex.test((adult.fullName || "").trim())) {
+        adultError.fullName =
+          "Please enter full name with first name and last name.";
+        isValid = false;
+      }
+
+      if (!isValidDOB(adult.dob)) {
+        adultError.dob = "Please enter a valid date of birth.";
+        isValid = false;
+      }
+
+      if (!phoneRegex.test((adult.phone || "").trim())) {
+        adultError.phone = "Phone number must be exactly 10 digits.";
+        isValid = false;
+      }
+
+      if (!(adult.relation || "").trim()) {
+        adultError.relation = "Relation is required.";
+        isValid = false;
+      }
+
+      return adultError;
+    });
+
+    newErrors.kids = (formData.kids || []).map((child) => {
+      const childError = {};
+
+      if (!nameRegex.test((child.fullName || "").trim())) {
+        childError.fullName =
+          "Please enter full name with first name and last name.";
+        isValid = false;
+      }
+
+      if (!isValidDOB(child.dob)) {
+        childError.dob = "Please enter a valid date of birth.";
+        isValid = false;
+      }
+
+      return childError;
+    });
+
+    setErrors(newErrors);
+    return isValid;
   };
 
   const validateMembershipRules = () => {
@@ -382,6 +532,12 @@ export default function MembershipForm() {
       return;
     }
 
+    const isBasicValid = validateBasicFields();
+    if (!isBasicValid) {
+      alert("Please correct the highlighted fields.");
+      return;
+    }
+
     const validationError = validateMembershipRules();
     if (validationError) {
       alert(validationError);
@@ -472,8 +628,14 @@ export default function MembershipForm() {
                 value={formData.mainContactName}
                 onChange={handleBasicChange}
                 required
-                className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                placeholder="First Name Last Name"
+                className={inputClass(!!errors.mainContactName)}
               />
+              {errors.mainContactName && (
+                <p className="text-sm text-red-600 mt-1">
+                  {errors.mainContactName}
+                </p>
+              )}
             </div>
 
             <div>
@@ -486,8 +648,11 @@ export default function MembershipForm() {
                 value={formData.email}
                 onChange={handleBasicChange}
                 required
-                className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                className={inputClass(!!errors.email)}
               />
+              {errors.email && (
+                <p className="text-sm text-red-600 mt-1">{errors.email}</p>
+              )}
             </div>
 
             <div>
@@ -500,8 +665,14 @@ export default function MembershipForm() {
                 value={formData.phone}
                 onChange={handleBasicChange}
                 required
-                className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                maxLength={10}
+                inputMode="numeric"
+                placeholder="10-digit phone number"
+                className={inputClass(!!errors.phone)}
               />
+              {errors.phone && (
+                <p className="text-sm text-red-600 mt-1">{errors.phone}</p>
+              )}
             </div>
 
             <div>
@@ -574,46 +745,76 @@ export default function MembershipForm() {
                   </h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input
-                      type="text"
-                      placeholder="Full Name"
-                      value={adult.fullName}
-                      onChange={(e) =>
-                        updateAdult(index, "fullName", e.target.value)
-                      }
-                      required
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                    />
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="First Name Last Name"
+                        value={adult.fullName}
+                        onChange={(e) =>
+                          updateAdult(index, "fullName", e.target.value)
+                        }
+                        required
+                        className={inputClass(!!errors.adults?.[index]?.fullName)}
+                      />
+                      {errors.adults?.[index]?.fullName && (
+                        <p className="text-sm text-red-600 mt-1">
+                          {errors.adults[index].fullName}
+                        </p>
+                      )}
+                    </div>
 
-                    <input
-                      type="date"
-                      value={adult.dob}
-                      onChange={(e) => updateAdult(index, "dob", e.target.value)}
-                      required
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                    />
+                    <div>
+                      <input
+                        type="date"
+                        value={adult.dob}
+                        onChange={(e) => updateAdult(index, "dob", e.target.value)}
+                        required
+                        className={inputClass(!!errors.adults?.[index]?.dob)}
+                      />
+                      {errors.adults?.[index]?.dob && (
+                        <p className="text-sm text-red-600 mt-1">
+                          {errors.adults[index].dob}
+                        </p>
+                      )}
+                    </div>
 
-                    <input
-                      type="tel"
-                      placeholder="Phone Number"
-                      value={adult.phone}
-                      onChange={(e) =>
-                        updateAdult(index, "phone", e.target.value)
-                      }
-                      required
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                    />
+                    <div>
+                      <input
+                        type="tel"
+                        placeholder="10-digit phone number"
+                        value={adult.phone}
+                        onChange={(e) =>
+                          updateAdult(index, "phone", e.target.value)
+                        }
+                        required
+                        maxLength={10}
+                        inputMode="numeric"
+                        className={inputClass(!!errors.adults?.[index]?.phone)}
+                      />
+                      {errors.adults?.[index]?.phone && (
+                        <p className="text-sm text-red-600 mt-1">
+                          {errors.adults[index].phone}
+                        </p>
+                      )}
+                    </div>
 
-                    <input
-                      type="text"
-                      placeholder="Relation to Account Holder"
-                      value={adult.relation}
-                      onChange={(e) =>
-                        updateAdult(index, "relation", e.target.value)
-                      }
-                      required
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                    />
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="Relation to Account Holder"
+                        value={adult.relation}
+                        onChange={(e) =>
+                          updateAdult(index, "relation", e.target.value)
+                        }
+                        required
+                        className={inputClass(!!errors.adults?.[index]?.relation)}
+                      />
+                      {errors.adults?.[index]?.relation && (
+                        <p className="text-sm text-red-600 mt-1">
+                          {errors.adults[index].relation}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   {formData.membershipType === "Student Membership" &&
@@ -674,65 +875,79 @@ export default function MembershipForm() {
 
           {(formData.membershipType === "Family Membership" ||
             formData.membershipType === "Family One Adult") && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-xl font-bold text-brand">
-                    Children Details
-                  </h2>
-                  <button
-                    type="button"
-                    onClick={addChild}
-                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition"
-                  >
-                    Add Child
-                  </button>
-                </div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-xl font-bold text-brand">
+                  Children Details
+                </h2>
+                <button
+                  type="button"
+                  onClick={addChild}
+                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition"
+                >
+                  Add Child
+                </button>
+              </div>
 
-                {formData.kids.map((child, index) => (
-                  <div
-                    key={index}
-                    className="border border-gray-200 rounded-xl p-4 bg-gray-50 space-y-4"
-                  >
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-gray-800">
-                        Child {index + 1}
-                      </h3>
+              {formData.kids.map((child, index) => (
+                <div
+                  key={index}
+                  className="border border-gray-200 rounded-xl p-4 bg-gray-50 space-y-4"
+                >
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-gray-800">
+                      Child {index + 1}
+                    </h3>
 
-                      {formData.kids.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeChild(index)}
-                          className="text-sm text-red-500 hover:text-red-600"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
+                    {formData.kids.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeChild(index)}
+                        className="text-sm text-red-500 hover:text-red-600"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
                       <input
                         type="text"
-                        placeholder="Child Full Name"
+                        placeholder="First Name Last Name"
                         value={child.fullName}
                         onChange={(e) =>
                           updateChild(index, "fullName", e.target.value)
                         }
                         required
-                        className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                        className={inputClass(!!errors.kids?.[index]?.fullName)}
                       />
+                      {errors.kids?.[index]?.fullName && (
+                        <p className="text-sm text-red-600 mt-1">
+                          {errors.kids[index].fullName}
+                        </p>
+                      )}
+                    </div>
 
+                    <div>
                       <input
                         type="date"
                         value={child.dob}
                         onChange={(e) => updateChild(index, "dob", e.target.value)}
                         required
-                        className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                        className={inputClass(!!errors.kids?.[index]?.dob)}
                       />
+                      {errors.kids?.[index]?.dob && (
+                        <p className="text-sm text-red-600 mt-1">
+                          {errors.kids[index].dob}
+                        </p>
+                      )}
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
+              ))}
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1">
@@ -767,8 +982,8 @@ export default function MembershipForm() {
                   ? "Updating..."
                   : "Submitting..."
                 : editMode
-                  ? "Update Membership Application"
-                  : "Submit Membership Application"}
+                ? "Update Membership Application"
+                : "Submit Membership Application"}
             </button>
           </div>
         </form>

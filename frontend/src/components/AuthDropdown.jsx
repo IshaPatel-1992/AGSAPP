@@ -1,8 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { FaUserCircle } from "react-icons/fa";
-import { useGoogleLogin } from "@react-oauth/google";
 import { useNavigate } from "react-router-dom";
-import { api } from "../api";
 
 export default function AuthDropdown({ user, setUser, onLogout, mobile = false }) {
   const [open, setOpen] = useState(false);
@@ -21,33 +19,6 @@ export default function AuthDropdown({ user, setUser, onLogout, mobile = false }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [mobile]);
-
-  const goAfterLogin = (user) => {
-    localStorage.setItem("member", JSON.stringify(user));
-    window.dispatchEvent(new Event("authChanged"));
-    setUser(user);
-    setOpen(false);
-    navigate("/membershipdashboard");
-  };
-
-  const googleLogin = useGoogleLogin({
-    onSuccess: async (tokenResponse) => {
-      try {
-        const result = await api.post("googleLogin.php", {
-          access_token: tokenResponse.access_token,
-        });
-
-        if (result?.success && result?.user) {
-          goAfterLogin(result.user);
-        } else {
-          alert(result?.message || "Google login failed");
-        }
-      } catch (err) {
-        console.error(err);
-        alert("Google login failed");
-      }
-    },
-  });
 
   const renderAvatar = () => {
     if (user?.full_name) {
@@ -89,6 +60,7 @@ export default function AuthDropdown({ user, setUser, onLogout, mobile = false }
               >
                 Dashboard
               </button>
+
               <button
                 onClick={() => {
                   onLogout();
@@ -100,28 +72,15 @@ export default function AuthDropdown({ user, setUser, onLogout, mobile = false }
               </button>
             </>
           ) : (
-            <>
-              <button
-                onClick={() => googleLogin()}
-                className="w-full h-[48px] border rounded flex items-center justify-center gap-2 hover:bg-gray-50"
-              >
-                <img
-                  src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-                  className="w-5 h-5"
-                />
-                Continue with Google
-              </button>
-
-              <button
-                onClick={() => {
-                  navigate("/login");
-                  setOpen(false);
-                }}
-                className="w-full mt-3 py-2 bg-gray-100 rounded"
-              >
-                Sign In / Sign Up
-              </button>
-            </>
+            <button
+              onClick={() => {
+                navigate("/login");
+                setOpen(false);
+              }}
+              className="w-full py-2 bg-gray-100 rounded hover:bg-gray-200"
+            >
+              Sign In / Sign Up
+            </button>
           )}
         </div>
       )}

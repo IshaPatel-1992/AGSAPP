@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import MyMemberships from "../components/MyMemberships";
+import PaymentTermsNotice from "../components/PaymentTermsNotice";
+import { msalInstance } from "../auth/msalConfig";
 import { api } from "../api";
 
 export default function MembershipDashboard() {
@@ -72,7 +74,15 @@ export default function MembershipDashboard() {
     });
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await msalInstance.logoutPopup({
+        mainWindowRedirectUri: "/",
+      });
+    } catch (err) {
+      console.log("MS logout skipped:", err);
+    }
+
     localStorage.removeItem("member");
     window.dispatchEvent(new Event("authChanged"));
     navigate("/login");
@@ -105,9 +115,21 @@ export default function MembershipDashboard() {
           <h2 className="text-2xl font-bold text-brand mb-2">
             Start a New Membership Application
           </h2>
+
           <p className="text-gray-600 mb-6">
-            Choose a membership type to create a new application under your account.
+            Choose a membership type to create a new application under your
+            account.
           </p>
+
+          <PaymentTermsNotice
+            showCheckbox={false}
+            className="mb-6"
+            notes={[
+              "Airdrie Gujarati Samaj does not accept returns for membership. Once paid, the membership amount is non-refundable and non-transferable under any circumstances.",
+              "Payment processing fees are applied by the payment provider and are non-refundable.",
+              "All AGS event tickets are non-refundable as well. However, event cancellations made well ahead of the event day may be eligible for a partial refund under certain circumstances only. Management will periodically decide the eligible refund percentage.",
+            ]}
+          />
 
           {loadingTypes && (
             <p className="text-gray-500">Loading membership types...</p>

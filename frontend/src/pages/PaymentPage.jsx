@@ -4,6 +4,7 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Elements } from "@stripe/react-stripe-js";
 import { api } from "../api";
 import PaymentCheckoutForm from "../components/PaymentCheckoutForm";
+import PaymentTermsNotice from "../components/PaymentTermsNotice";
 
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
 
@@ -12,6 +13,7 @@ export default function PaymentPage() {
   const navigate = useNavigate();
 
   const applications = location.state?.applications || [];
+
   const totalAmount =
     location.state?.totalAmount ||
     applications.reduce((sum, item) => sum + Number(item.amount || 0), 0);
@@ -25,11 +27,11 @@ export default function PaymentPage() {
   const [baseAmount, setBaseAmount] = useState(0);
   const [processingFee, setProcessingFee] = useState(0);
   const [finalAmount, setFinalAmount] = useState(0);
+  const [agreePolicy, setAgreePolicy] = useState(false);
 
-  const applicationIds = useMemo(
-    () => applications.map((app) => app.id),
-    [applications]
-  );
+  const applicationIds = useMemo(() => {
+    return applications.map((app) => app.id);
+  }, [applications]);
 
   useEffect(() => {
     const createIntent = async () => {
@@ -39,11 +41,13 @@ export default function PaymentPage() {
 
         if (!memberId) {
           setError("Member not found. Please login again.");
+          setLoadingIntent(false);
           return;
         }
 
         if (!applications.length) {
           setError("No unpaid memberships found for payment.");
+          setLoadingIntent(false);
           return;
         }
 
@@ -70,7 +74,7 @@ export default function PaymentPage() {
     };
 
     createIntent();
-  }, [memberId, applications, applicationIds, totalAmount]);
+  }, [memberId, applications.length, applicationIds, totalAmount]);
 
   const options = {
     clientSecret,
@@ -133,7 +137,9 @@ export default function PaymentPage() {
                 </div>
 
                 <div className="flex items-center justify-between text-gray-700">
-                  <span className="text-base font-medium">Processing Fee</span>
+                  <span className="text-base font-medium">
+                    Processing Fee (Stripe)
+                  </span>
                   <span className="text-base font-semibold">
                     ${Number(processingFee || 0).toFixed(2)}
                   </span>
@@ -149,9 +155,20 @@ export default function PaymentPage() {
                 </div>
 
                 <p className="text-sm text-gray-500">
-                  A small processing fee is added to cover secure online payment charges.
+                  A small processing fee is added to cover secure online payment
+                  charges.
                 </p>
               </div>
+
+              <PaymentTermsNotice
+                agreed={agreePolicy}
+                setAgreed={setAgreePolicy}
+                notes={[
+                  "Payment processing fees are applied by the payment provider and are non-refundable.",
+                  "Airdrie Gujarati Samaj does not accept returns for membership. Once paid, the membership amount is non-refundable and non-transferable under any circumstances.",
+                ]}
+                checkboxLabel="I understand and agree that payment processing fees are non-refundable, and membership payments are non-refundable and non-transferable."
+              />
 
               <div className="mt-6">
                 <button
@@ -170,11 +187,17 @@ export default function PaymentPage() {
                   <div className="bg-red-50 text-red-700 border border-red-200 rounded-xl p-4">
                     {error}
                   </div>
+                ) : !agreePolicy ? (
+                  <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-yellow-800">
+                    Please accept the payment terms above to continue with
+                    payment.
+                  </div>
                 ) : clientSecret ? (
                   <Elements stripe={stripePromise} options={options}>
                     <PaymentCheckoutForm
                       memberId={memberId}
                       totalAmount={finalAmount || totalAmount}
+                      applicationIds={applicationIds}
                     />
                   </Elements>
                 ) : null}
