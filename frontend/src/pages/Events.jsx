@@ -6,15 +6,33 @@ export default function EventsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // FILTER UPCOMING EVENTS ONLY
+  const filterUpcomingEvents = (eventsList) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return eventsList.filter((event) => {
+      const eventDate = event.event_date || event.date;
+
+      // Show events with no date as Coming Soon
+      if (!eventDate || eventDate === "0000-00-00") return true;
+
+      const [year, month, day] = eventDate.split("-").map(Number);
+      const eventLocalDate = new Date(year, month - 1, day);
+
+      return eventLocalDate >= today;
+    });
+  };
+
   useEffect(() => {
     const fetchEvents = async () => {
       try {
         const result = await api.get("/getEvents.php");
 
         if (result?.success) {
-          setEvents(result.data || []);
+          setEvents(filterUpcomingEvents(result.data || []));
         } else if (Array.isArray(result)) {
-          setEvents(result);
+          setEvents(filterUpcomingEvents(result));
         } else {
           setError(result?.message || "Failed to fetch events");
         }
@@ -53,7 +71,7 @@ export default function EventsPage() {
 
         {events.length === 0 ? (
           <div className="rounded-2xl bg-white p-8 text-center shadow-[0_2px_10px_rgba(0,0,0,0.08)]">
-            No events found.
+            No upcoming events found.
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
@@ -62,23 +80,57 @@ export default function EventsPage() {
                 event.image_url || event.image?.url || event.image || "";
 
               const eventTitle = event.title || "Untitled Event";
-              const eventDescription = event.description || "No description available.";
-              const eventLocation = event.location || "To be announced";
-              const eventDate = event.event_date || event.date || "";
-              const formattedEventDate = eventDate
-                ? (() => {
-                  const [year, month, day] = eventDate.split("-").map(Number);
-                  const monthNames = [
-                    "January", "February", "March", "April", "May", "June",
-                    "July", "August", "September", "October", "November", "December"
-                  ];
-                  return `${day} ${monthNames[month - 1]} ${year}`;
-                })()
-                : "";
+              const eventDescription =
+                event.description || "No description available.";
+              const eventLocation =
+                event.location || "To be announced";
+
+              const eventDate =
+                event.event_date && event.event_date !== "0000-00-00"
+                  ? event.event_date
+                  : event.date && event.date !== "0000-00-00"
+                    ? event.date
+                    : "";
+
+              const eventEndDate = event.event_end_date || "";
+
+              const formatDate = (dateString) => {
+                const [year, month, day] = dateString
+                  .split("-")
+                  .map(Number);
+
+                const monthNames = [
+                  "January",
+                  "February",
+                  "March",
+                  "April",
+                  "May",
+                  "June",
+                  "July",
+                  "August",
+                  "September",
+                  "October",
+                  "November",
+                  "December",
+                ];
+
+                return `${day} ${monthNames[month - 1]} ${year}`;
+              };
+
+              const formattedEventDate =
+                eventDate && eventEndDate
+                  ? `${formatDate(eventDate)} - ${formatDate(eventEndDate)}`
+                  : eventDate
+                    ? formatDate(eventDate)
+                    : "Date Coming Soon July-August";
+
               const eventKey = event.id || event._id || index;
 
-              const isRegistrationOpen = Number(event.registration_open) === 1;
-              const registrationLink = event.registration_link || "";
+              const isRegistrationOpen =
+                Number(event.registration_open) === 1;
+
+              const registrationLink =
+                event.registration_link || "";
 
               return (
                 <div
@@ -95,13 +147,23 @@ export default function EventsPage() {
                     )}
 
                     {/* DATE BADGE */}
-                    {/* DATE BADGE */}
-                    {eventDate && (() => {
-                      const [year, month, day] = eventDate.split("-").map(Number);
+                    {eventDate ? (() => {
+                      const [year, month, day] =
+                        eventDate.split("-").map(Number);
 
                       const monthNames = [
-                        "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
-                        "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"
+                        "JAN",
+                        "FEB",
+                        "MAR",
+                        "APR",
+                        "MAY",
+                        "JUN",
+                        "JUL",
+                        "AUG",
+                        "SEP",
+                        "OCT",
+                        "NOV",
+                        "DEC",
                       ];
 
                       return (
@@ -109,16 +171,32 @@ export default function EventsPage() {
                           <p className="text-xs font-bold text-orange-500">
                             {monthNames[month - 1]}
                           </p>
+
                           <p className="text-xl font-extrabold text-gray-900 leading-none">
                             {day}
                           </p>
+
                           <p className="text-[11px] font-semibold text-gray-500">
                             {year}
                           </p>
                         </div>
                       );
-                    })()}
+                    })() : (
+                      <div className="absolute left-4 top-4 rounded-2xl bg-orange-500 px-4 py-2 shadow-lg text-center">
+                        <p className="text-xs font-bold text-white">
+                          COMING
+                        </p>
+
+                        <p className="text-sm font-extrabold text-white leading-none">
+                          SOON
+                        </p>
+                        <p className="text-sm font-extrabold text-white leading-none">
+                          JUL-AUG
+                        </p>
+                      </div>
+                    )}
                   </div>
+
                   <h2 className="m-0 text-2xl font-bold text-[#d4503e]">
                     {eventTitle}
                   </h2>
@@ -138,7 +216,9 @@ export default function EventsPage() {
                   {isRegistrationOpen && registrationLink && (
                     <div className="mt-5">
                       <button
-                        onClick={() => window.open(registrationLink, "_blank")}
+                        onClick={() =>
+                          window.open(registrationLink, "_blank")
+                        }
                         className="rounded-lg bg-[#d4503e] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#bb4332]"
                       >
                         Register / RSVP

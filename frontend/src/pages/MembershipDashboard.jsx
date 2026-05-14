@@ -193,7 +193,7 @@ export default function MembershipDashboard() {
                     <button
                       type="button"
                       onClick={() => handleNewMembership(item.name)}
-                      className="px-4 py-2 rounded-lg bg-brand text-white font-medium hover:opacity-90 transition"
+                      className="px-4 py-2 rounded-lg bg-brand text-orange font-medium hover:opacity-90 transition"
                     >
                       Add Application
                     </button>

@@ -13,7 +13,8 @@ export default function Navbar() {
   const menuItems = [
     { name: "Home", path: "/" },
     { name: "About", path: "/about" },
-    { name: "Events", path: "/events" },
+    { name: "Upcoming Events", path: "/events" },
+    { name: "Gallery", path: "/gallerypage" },
     { name: "Membership Info", path: "/membershipinfo" },
     { name: "Contact Us", path: "/contact" },
   ];
