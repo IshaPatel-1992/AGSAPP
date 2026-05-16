@@ -6,7 +6,7 @@ const membershipConfig = {
   "Family Membership": {
     label: "Family Membership",
     adults: 2,
-    kids: 2,
+    kids: 0,
   },
   "Single Adult Membership": {
     label: "Single Adult Membership",
@@ -88,10 +88,9 @@ export default function MembershipForm() {
   );
 
   const inputClass = (hasError) =>
-    `w-full border rounded-lg px-4 py-2 outline-none transition ${
-      hasError
-        ? "border-red-500 focus:ring-2 focus:ring-red-200"
-        : "border-gray-300 focus:ring-2 focus:ring-yellow-200"
+    `w-full border rounded-lg px-4 py-2 outline-none transition ${hasError
+      ? "border-red-500 focus:ring-2 focus:ring-red-200"
+      : "border-gray-300 focus:ring-2 focus:ring-yellow-200"
     }`;
 
   const nameRegex = /^[A-Za-z]+(?:\s+[A-Za-z]+)+$/;
@@ -875,31 +874,31 @@ export default function MembershipForm() {
 
           {(formData.membershipType === "Family Membership" ||
             formData.membershipType === "Family One Adult") && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="text-xl font-bold text-brand">
-                  Children Details
-                </h2>
-                <button
-                  type="button"
-                  onClick={addChild}
-                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition"
-                >
-                  Add Child
-                </button>
-              </div>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-xl font-bold text-brand">
+                    Children Details
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={addChild}
+                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition"
+                  >
+                    Add Child
+                  </button>
+                </div>
 
-              {formData.kids.map((child, index) => (
-                <div
-                  key={index}
-                  className="border border-gray-200 rounded-xl p-4 bg-gray-50 space-y-4"
-                >
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-gray-800">
-                      Child {index + 1}
-                    </h3>
+                {formData.kids.map((child, index) => (
+                  <div
+                    key={index}
+                    className="border border-gray-200 rounded-xl p-4 bg-gray-50 space-y-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-gray-800">
+                        Child {index + 1}
+                      </h3>
 
-                    {formData.kids.length > 1 && (
+
                       <button
                         type="button"
                         onClick={() => removeChild(index)}
@@ -907,47 +906,47 @@ export default function MembershipForm() {
                       >
                         Remove
                       </button>
-                    )}
-                  </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <input
-                        type="text"
-                        placeholder="First Name Last Name"
-                        value={child.fullName}
-                        onChange={(e) =>
-                          updateChild(index, "fullName", e.target.value)
-                        }
-                        required
-                        className={inputClass(!!errors.kids?.[index]?.fullName)}
-                      />
-                      {errors.kids?.[index]?.fullName && (
-                        <p className="text-sm text-red-600 mt-1">
-                          {errors.kids[index].fullName}
-                        </p>
-                      )}
                     </div>
 
-                    <div>
-                      <input
-                        type="date"
-                        value={child.dob}
-                        onChange={(e) => updateChild(index, "dob", e.target.value)}
-                        required
-                        className={inputClass(!!errors.kids?.[index]?.dob)}
-                      />
-                      {errors.kids?.[index]?.dob && (
-                        <p className="text-sm text-red-600 mt-1">
-                          {errors.kids[index].dob}
-                        </p>
-                      )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <input
+                          type="text"
+                          placeholder="First Name Last Name"
+                          value={child.fullName}
+                          onChange={(e) =>
+                            updateChild(index, "fullName", e.target.value)
+                          }
+                          required
+                          className={inputClass(!!errors.kids?.[index]?.fullName)}
+                        />
+                        {errors.kids?.[index]?.fullName && (
+                          <p className="text-sm text-red-600 mt-1">
+                            {errors.kids[index].fullName}
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        <input
+                          type="date"
+                          value={child.dob}
+                          onChange={(e) => updateChild(index, "dob", e.target.value)}
+                          required
+                          className={inputClass(!!errors.kids?.[index]?.dob)}
+                        />
+                        {errors.kids?.[index]?.dob && (
+                          <p className="text-sm text-red-600 mt-1">
+                            {errors.kids[index].dob}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
 
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1">
@@ -982,8 +981,8 @@ export default function MembershipForm() {
                   ? "Updating..."
                   : "Submitting..."
                 : editMode
-                ? "Update Membership Application"
-                : "Submit Membership Application"}
+                  ? "Update Membership Application"
+                  : "Submit Membership Application"}
             </button>
           </div>
         </form>
