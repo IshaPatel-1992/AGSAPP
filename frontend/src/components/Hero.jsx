@@ -45,7 +45,7 @@ export default function Hero() {
                 </h3>
               </div>
 
-              {/* Outdoor Garba */}
+              {/* Outdoor Garba 
               <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
                 <p className="text-xs font-bold uppercase tracking-wide text-yellow-300">
                   August 29, 2026
@@ -58,9 +58,9 @@ export default function Hero() {
                 <p className="mt-1 text-xs text-white/75">
                   Music, dance, food & cultural celebration.
                 </p>
-              </div>
+              </div> */}
 
-              {/* Movie Night */}
+              {/* Movie Night 
               <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
                 <p className="text-xs font-bold uppercase tracking-wide text-yellow-300">
                   Coming Soon
@@ -69,9 +69,9 @@ export default function Hero() {
                 <h3 className="mt-1 text-lg font-bold text-white">
                   Movie Night
                 </h3>
-              </div>
+              </div> */}
 
-              {/* Camping */}
+              {/* Camping 
               <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
                 <p className="text-xs font-bold uppercase tracking-wide text-yellow-300">
                   Coming Soon
@@ -80,7 +80,7 @@ export default function Hero() {
                 <h3 className="mt-1 text-lg font-bold text-white">
                   Camping Event
                 </h3>
-              </div>
+              </div> */}
             </div>
 
             {/* Buttons */}
@@ -149,6 +149,7 @@ export default function Hero() {
         </h3>
       </div>
 
+      {/* Outdoor Garba 
       <div className="rounded-3xl border border-white/10 bg-white/10 p-5 backdrop-blur-xl shadow-xl">
         <p className="text-sm font-bold uppercase tracking-widest text-yellow-300">
           August 29, 2026
@@ -159,9 +160,9 @@ export default function Hero() {
         <p className="mt-2 text-sm text-white/80">
           Music, dance, food, and community spirit.
         </p>
-      </div>
+      </div> */}       
 
-      <div className="grid grid-cols-2 gap-4">
+      {/* <div className="grid grid-cols-2 gap-4">
         <div className="rounded-3xl border border-white/10 bg-white/10 p-5 backdrop-blur-xl shadow-xl">
           <p className="text-sm font-bold uppercase tracking-widest text-yellow-300">
             Coming Soon
@@ -179,7 +180,7 @@ export default function Hero() {
             Camping Event
           </h3>
         </div>
-      </div>
+      </div> */}
     </div>
   </div>
 </section>

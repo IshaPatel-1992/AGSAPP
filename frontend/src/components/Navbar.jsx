@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import logo from "../assets/logo/Airdrie-Samaj-Logo-png.png";
+import logo from "../assets/logo/airdriegujaratisamaj-logo.png";
 import navbarBg from "../assets/Footer/shutterstock_2506871797.jpg";
 import { FaBars, FaTimes } from "react-icons/fa";
 import AuthDropdown from "./AuthDropdown";

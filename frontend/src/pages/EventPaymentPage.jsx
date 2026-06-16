@@ -1,0 +1,343 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { loadStripe } from "@stripe/stripe-js";
+import {
+  Elements,
+  PaymentElement,
+  useElements,
+  useStripe,
+} from "@stripe/react-stripe-js";
+import { api } from "../api";
+
+const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY_TEST);
+
+export default function EventPaymentPage() {
+  const { eventId } = useParams();
+  const navigate = useNavigate();
+
+  const [bookingData, setBookingData] = useState(null);
+  const [paymentInfo, setPaymentInfo] = useState(null);
+  const [loadingPayment, setLoadingPayment] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const savedBooking = sessionStorage.getItem("eventBookingData");
+
+    if (!savedBooking) {
+      navigate(`/events/${eventId}/booking`);
+      return;
+    }
+
+    setBookingData(JSON.parse(savedBooking));
+  }, [eventId, navigate]);
+
+  const totalAmount = useMemo(() => {
+    return Number(bookingData?.total_amount || 0);
+  }, [bookingData]);
+
+  const handleCreatePaymentIntent = async () => {
+    try {
+      setLoadingPayment(true);
+      setError("");
+
+      const savedMember = localStorage.getItem("member");
+      const parsedMember = savedMember ? JSON.parse(savedMember) : null;
+
+      const result = await api.post("createEventPaymentIntent.php", {
+        ...bookingData,
+        member_id: parsedMember?.id || bookingData?.member_id || null,
+      });
+
+      if (!result?.success) {
+        setError(result?.message || "Unable to start payment.");
+        return;
+      }
+
+      setPaymentInfo(result);
+    } catch (err) {
+      console.error("Create event payment error:", err);
+      setError("Could not connect to payment server.");
+    } finally {
+      setLoadingPayment(false);
+    }
+  };
+
+  if (!bookingData) {
+    return <p className="px-6 py-10 text-center">Loading payment...</p>;
+  }
+
+  return (
+    <section className="min-h-screen bg-[#fdf6ef] px-6 py-10">
+      <div className="mx-auto max-w-[850px]">
+        <button
+          onClick={() =>
+            navigate(
+              bookingData.booking_type === "member"
+                ? `/events/${eventId}/booking/member`
+                : `/events/${eventId}/booking/non-member`
+            )
+          }
+          className="mb-6 text-sm font-semibold text-[#d4503e]"
+        >
+          ← Back to Booking
+        </button>
+
+        <div className="rounded-3xl bg-white p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] md:p-8">
+          <p className="text-sm font-semibold uppercase tracking-wide text-orange-500">
+            Payment Summary
+          </p>
+
+          <h1 className="mt-2 text-3xl font-bold text-[#d4503e]">
+            Confirm Picnic Booking
+          </h1>
+
+          {error && (
+            <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+              {error}
+            </div>
+          )}
+
+          <div className="mt-6 rounded-2xl bg-[#fdf6ef] p-5">
+            <p className="font-bold text-gray-900">
+              Booking Type:{" "}
+              {bookingData.booking_type === "member" ? "Member" : "Non-Member"}
+            </p>
+
+            {bookingData.membership_type && (
+              <p className="mt-1 text-sm text-gray-600">
+                Membership Type: {bookingData.membership_type}
+              </p>
+            )}
+
+            <p className="mt-1 text-sm text-gray-600">
+              Name: {bookingData.buyer_name}
+            </p>
+
+            <p className="mt-1 text-sm text-gray-600">
+              Email: {bookingData.buyer_email}
+            </p>
+
+            {bookingData.buyer_phone && (
+              <p className="mt-1 text-sm text-gray-600">
+                Phone: {bookingData.buyer_phone}
+              </p>
+            )}
+          </div>
+
+          <div className="mt-8 space-y-3">
+            <SummaryRow
+              label="Adult Tickets"
+              qty={bookingData.adult_qty}
+              price={bookingData.adult_price}
+            />
+
+            <SummaryRow
+              label="Kid Under 10 Tickets"
+              qty={bookingData.child_qty}
+              price={bookingData.child_price}
+            />
+
+            <SummaryRow
+              label="Student Tickets"
+              qty={bookingData.student_qty}
+              price={bookingData.student_price}
+            />
+
+            <SummaryRow
+              label="Senior Tickets"
+              qty={bookingData.senior_qty}
+              price={bookingData.senior_price}
+            />
+          </div>
+
+          <SelectedPeople selectedPeople={bookingData.selected_people} />
+
+          <div className="mt-8 rounded-2xl border border-gray-200 p-5">
+            <div className="flex justify-between text-sm text-gray-700">
+              <span>Total Tickets</span>
+              <strong>{bookingData.total_tickets}</strong>
+            </div>
+
+            <div className="mt-3 flex justify-between text-xl font-bold text-gray-900">
+              <span>Ticket Subtotal</span>
+              <span>${totalAmount.toFixed(2)}</span>
+            </div>
+
+            {paymentInfo && (
+              <>
+                <div className="mt-3 flex justify-between text-sm text-gray-700">
+                  <span>Processing Fee</span>
+                  <strong>${Number(paymentInfo.processingFee || 0).toFixed(2)}</strong>
+                </div>
+
+                <div className="mt-3 flex justify-between text-2xl font-extrabold text-gray-900">
+                  <span>Final Amount</span>
+                  <span>${Number(paymentInfo.finalAmount || 0).toFixed(2)}</span>
+                </div>
+              </>
+            )}
+          </div>
+
+          {!paymentInfo ? (
+            <button
+              onClick={handleCreatePaymentIntent}
+              disabled={loadingPayment}
+              className="mt-8 w-full rounded-xl bg-[#d4503e] px-5 py-3 font-bold text-white transition hover:bg-[#bb4332] disabled:opacity-60"
+            >
+              {loadingPayment ? "Preparing Payment..." : "Proceed to Payment"}
+            </button>
+          ) : (
+            <Elements
+              stripe={stripePromise}
+              options={{
+                clientSecret: paymentInfo.clientSecret,
+              }}
+            >
+              <EventCheckoutForm
+                bookingId={paymentInfo.booking_id}
+                bookingNumber={paymentInfo.booking_number}
+                paymentIntentId={paymentInfo.paymentIntentId}
+              />
+            </Elements>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function EventCheckoutForm({ bookingId, bookingNumber, paymentIntentId }) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const navigate = useNavigate();
+
+  const [paying, setPaying] = useState(false);
+  const [paymentError, setPaymentError] = useState("");
+
+  const handlePay = async (e) => {
+    e.preventDefault();
+
+    if (!stripe || !elements) return;
+
+    setPaying(true);
+    setPaymentError("");
+
+    const result = await stripe.confirmPayment({
+      elements,
+      redirect: "if_required",
+    });
+
+    if (result.error) {
+      setPaymentError(result.error.message || "Payment failed.");
+      setPaying(false);
+      return;
+    }
+
+    try {
+      const confirmResult = await api.post("confirmEventPayment.php", {
+        booking_id: bookingId,
+        payment_intent_id:
+          result.paymentIntent?.id || paymentIntentId,
+      });
+
+      if (!confirmResult?.success) {
+        setPaymentError(
+          confirmResult?.message || "Payment completed but confirmation failed."
+        );
+        setPaying(false);
+        return;
+      }
+
+      sessionStorage.removeItem("eventBookingData");
+
+      navigate(`/events/payment-success`, {
+        state: {
+          booking_id: bookingId,
+          booking_number: bookingNumber,
+          tickets_created: confirmResult.tickets_created,
+        },
+      });
+    } catch (err) {
+      console.error("Confirm event payment error:", err);
+      setPaymentError("Payment completed but server confirmation failed.");
+      setPaying(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handlePay} className="mt-8">
+      {paymentError && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+          {paymentError}
+        </div>
+      )}
+
+      <div className="rounded-2xl border border-gray-200 p-4">
+        <PaymentElement />
+      </div>
+
+      <button
+        type="submit"
+        disabled={!stripe || !elements || paying}
+        className="mt-6 w-full rounded-xl bg-green-600 px-5 py-3 font-bold text-white transition hover:bg-green-700 disabled:opacity-60"
+      >
+        {paying ? "Processing Payment..." : "Pay Now"}
+      </button>
+    </form>
+  );
+}
+
+function SummaryRow({ label, qty, price }) {
+  const quantity = Number(qty || 0);
+  const ticketPrice = Number(price || 0);
+  const lineTotal = quantity * ticketPrice;
+
+  if (quantity === 0) return null;
+
+  return (
+    <div className="flex items-center justify-between rounded-2xl border border-gray-200 p-4">
+      <div>
+        <p className="font-bold text-gray-900">{label}</p>
+        <p className="text-sm text-gray-600">
+          {quantity} × {ticketPrice === 0 ? "Free" : `$${ticketPrice.toFixed(2)}`}
+        </p>
+      </div>
+
+      <p className="font-bold text-gray-900">${lineTotal.toFixed(2)}</p>
+    </div>
+  );
+}
+
+function SelectedPeople({ selectedPeople }) {
+  if (!selectedPeople) return null;
+
+  const getNameText = (person) => {
+    if (typeof person === "string") return person;
+    return person?.name || "";
+  };
+
+  const hasPeople = Object.values(selectedPeople).some(
+    (list) => Array.isArray(list) && list.length > 0
+  );
+
+  if (!hasPeople) return null;
+
+  return (
+    <div className="mt-8 rounded-2xl bg-[#fdf6ef] p-5">
+      <p className="mb-3 text-sm font-bold text-gray-900">
+        Selected Ticket Holders
+      </p>
+
+      {Object.entries(selectedPeople).map(([type, list]) => {
+        if (!Array.isArray(list) || list.length === 0) return null;
+
+        return (
+          <div key={type} className="mb-2 text-sm text-gray-700">
+            <strong className="capitalize">{type}:</strong>{" "}
+            {list.map(getNameText).join(", ")}
+          </div>
+        );
+      })}
+    </div>
+  );
+}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useMsal } from "@azure/msal-react";
 import { loginRequest } from "../auth/msalConfig";
@@ -11,20 +11,31 @@ export default function Login() {
   const { instance } = useMsal();
 
   const membershipType = location.state?.membershipType || "";
+  const loginMessage = location.state?.message || "";
+
+  const redirectTo = useMemo(() => {
+    return (
+      location.state?.redirectTo ||
+      sessionStorage.getItem("loginRedirectTo") ||
+      "/membershipdashboard"
+    );
+  }, [location.state]);
 
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
-  const [message, setMessage] = useState("");
+
+  const [message, setMessage] = useState(loginMessage || "");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const finishMicrosoftLogin = async () => {
       try {
-        // Avoid re-processing if already logged in
         const existingMember = localStorage.getItem("member");
+
         if (existingMember) {
+          navigate(redirectTo);
           return;
         }
 
@@ -32,7 +43,6 @@ export default function Login() {
 
         let account = redirectResult?.account;
 
-        // Fallback: sometimes redirectResult is null but account exists in MSAL cache
         if (!account) {
           const accounts = instance.getAllAccounts();
           if (accounts.length > 0) {
@@ -40,9 +50,7 @@ export default function Login() {
           }
         }
 
-        if (!account) {
-          return;
-        }
+        if (!account) return;
 
         setLoading(true);
         setMessage("");
@@ -69,9 +77,7 @@ export default function Login() {
             last_login: result.last_login,
           };
 
-          localStorage.setItem("member", JSON.stringify(memberData));
-          window.dispatchEvent(new Event("authChanged"));
-          navigate("/membershipdashboard");
+          goNext(memberData);
         } else {
           setMessage(result?.message || "Microsoft login failed.");
         }
@@ -84,21 +90,27 @@ export default function Login() {
     };
 
     finishMicrosoftLogin();
-  }, [instance, navigate]);
+  }, [instance, navigate, redirectTo]);
 
   const goNext = (user) => {
     localStorage.setItem("member", JSON.stringify(user));
+    sessionStorage.removeItem("loginRedirectTo");
     window.dispatchEvent(new Event("authChanged"));
-    navigate("/membershipdashboard");
+    navigate(redirectTo);
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   const handleManualLogin = async (e) => {
     e.preventDefault();
+
     setLoading(true);
     setMessage("");
 
@@ -106,7 +118,7 @@ export default function Login() {
       const result = await api.post("loginMember.php", formData);
 
       if (result?.success && result?.user) {
-        setMessage("Login successful! Redirecting to dashboard...");
+        setMessage("Login successful! Redirecting...");
 
         const memberData = {
           ...result.user,
@@ -115,7 +127,7 @@ export default function Login() {
 
         setTimeout(() => {
           goNext(memberData);
-        }, 1000);
+        }, 800);
       } else {
         setMessage(result?.message || "Login failed");
       }
@@ -138,7 +150,7 @@ export default function Login() {
         });
 
         if (result?.success && result?.user) {
-          setMessage("Login successful! Redirecting to dashboard...");
+          setMessage("Login successful! Redirecting...");
 
           const memberData = {
             ...result.user,
@@ -147,7 +159,7 @@ export default function Login() {
 
           setTimeout(() => {
             goNext(memberData);
-          }, 1000);
+          }, 800);
         } else {
           setMessage(result?.message || "Google login failed.");
         }
@@ -167,7 +179,13 @@ export default function Login() {
     try {
       setLoading(true);
       setMessage("");
-      await instance.loginRedirect(loginRequest);
+
+      sessionStorage.setItem("loginRedirectTo", redirectTo);
+
+      await instance.loginRedirect({
+        ...loginRequest,
+        prompt: "select_account",
+      });
     } catch (error) {
       console.error("Microsoft login error:", error);
       setMessage(error?.message || "Microsoft sign-in failed.");
@@ -183,6 +201,7 @@ export default function Login() {
 
     try {
       setLoading(true);
+
       const result = await api.post("resendVerification.php", {
         email: formData.email,
       });
@@ -196,6 +215,10 @@ export default function Login() {
     }
   };
 
+  const isSuccessMessage =
+    message.toLowerCase().includes("successful") ||
+    message.toLowerCase().includes("redirecting");
+
   const controlClass =
     "w-full h-[48px] px-4 rounded-lg border border-gray-300 text-sm flex items-center justify-center gap-3 hover:bg-gray-50 transition disabled:opacity-60";
 
@@ -208,6 +231,12 @@ export default function Login() {
             Access your member account to continue.
           </p>
         </div>
+
+        {loginMessage && (
+          <div className="mb-4 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-700">
+            {loginMessage}
+          </div>
+        )}
 
         {membershipType && (
           <p className="text-center text-sm text-gray-600 mb-4">
@@ -292,13 +321,10 @@ export default function Login() {
           </button>
         </form>
 
-        {message && (
+        {message && !loginMessage && (
           <p
             className={`text-sm text-center mt-4 ${
-              message.toLowerCase().includes("successful") ||
-              message.toLowerCase().includes("redirecting")
-                ? "text-green-600"
-                : "text-red-500"
+              isSuccessMessage ? "text-green-600" : "text-red-500"
             }`}
           >
             {message}
@@ -316,7 +342,7 @@ export default function Login() {
           Don&apos;t have an account?{" "}
           <Link
             to="/signup"
-            state={{ membershipType }}
+            state={{ membershipType, redirectTo }}
             className="text-brand font-semibold"
           >
             Join now

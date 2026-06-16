@@ -32,28 +32,28 @@ export default function MembershipInfo() {
     loadMembershipTypes();
   }, []);
 
-  const handleMembershipClick = (membershipType) => {
-    if (!APP_CONFIG.MEMBERSHIP_ENABLED) return;
+  const handleMembershipClick = (membership) => {
+  if (!APP_CONFIG.MEMBERSHIP_ENABLED) return;
 
-    const user = localStorage.getItem("member");
+  const user = localStorage.getItem("member");
 
-    if (user) {
-      navigate("/membershipdashboard", {
-        state: { selectedMembershipType: membershipType },
-      });
-      return;
-    }
+  if (user) {
+    navigate("/membershipdashboard", {
+      state: { selectedMembership: membership },
+    });
+    return;
+  }
 
-    const confirmed = window.confirm(
-      "You need to log in first to apply for membership. Press OK to go to Login page."
-    );
+  const confirmed = window.confirm(
+    "You need to log in first to apply for membership. Press OK to go to Login page."
+  );
 
-    if (confirmed) {
-      navigate("/login", {
-        state: { membershipType },
-      });
-    }
-  };
+  if (confirmed) {
+    navigate("/login", {
+      state: { selectedMembership: membership },
+    });
+  }
+};
 
   return (
     <section className="relative w-full overflow-hidden">
@@ -90,7 +90,7 @@ export default function MembershipInfo() {
             {memberships.map((m) => (
               <div
                 key={m.id}
-                onClick={() => handleMembershipClick(m.name)}
+                onClick={() => handleMembershipClick(m)}
                 className="cursor-pointer relative bg-white/90 rounded-2xl p-6 shadow-xl border hover:shadow-2xl transition transform hover:-translate-y-1 hover:scale-[1.02]"
               >
                 <div className="absolute top-0 left-0 w-full h-2 bg-orange-500"></div>
@@ -135,12 +135,6 @@ export default function MembershipInfo() {
             ))}
           </div>
         )}
-
-        <div className="text-center mt-12">
-          <p className="mb-4 text-lg">
-            Ready to join? Membership registration will open soon. Stay tuned!
-          </p>
-        </div>
       </div>
     </section>
   );

@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 
 export default function EventsPage() {
+  const navigate = useNavigate();
+
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // FILTER UPCOMING EVENTS ONLY
   const filterUpcomingEvents = (eventsList) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -14,7 +16,6 @@ export default function EventsPage() {
     return eventsList.filter((event) => {
       const eventDate = event.event_date || event.date;
 
-      // Show events with no date as Coming Soon
       if (!eventDate || eventDate === "0000-00-00") return true;
 
       const [year, month, day] = eventDate.split("-").map(Number);
@@ -22,6 +23,29 @@ export default function EventsPage() {
 
       return eventLocalDate >= today;
     });
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString || dateString === "0000-00-00") return "";
+
+    const [year, month, day] = dateString.split("-").map(Number);
+
+    const monthNames = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+
+    return `${day} ${monthNames[month - 1]} ${year}`;
   };
 
   useEffect(() => {
@@ -47,21 +71,22 @@ export default function EventsPage() {
   }, []);
 
   if (loading) {
-    return (
-      <p className="px-6 py-10 text-center">
-        Loading Events...
-      </p>
-    );
+    return <p className="px-6 py-10 text-center">Loading Events...</p>;
   }
 
   if (error) {
-    return (
-      <p className="px-6 py-10 text-center text-red-600">
-        {error}
-      </p>
-    );
+    return <p className="px-6 py-10 text-center text-red-600">{error}</p>;
   }
 
+  const handleBookNow = (eventId) => {
+    const savedMember = localStorage.getItem("member");
+
+    if (savedMember) {
+      navigate(`/events/${eventId}/booking/member`);
+    } else {
+      navigate(`/events/${eventId}/booking`);
+    }
+  };
   return (
     <section className="min-h-screen bg-[#fdf6ef] px-6 py-10">
       <div className="mx-auto max-w-[1000px]">
@@ -76,14 +101,17 @@ export default function EventsPage() {
         ) : (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
             {events.map((event, index) => {
+              const eventKey = event.id || event._id || index;
+
               const imageUrl =
                 event.image_url || event.image?.url || event.image || "";
 
               const eventTitle = event.title || "Untitled Event";
+
               const eventDescription =
                 event.description || "No description available.";
-              const eventLocation =
-                event.location || "To be announced";
+
+              const eventLocation = event.location || "To be announced";
 
               const eventDate =
                 event.event_date && event.event_date !== "0000-00-00"
@@ -92,30 +120,10 @@ export default function EventsPage() {
                     ? event.date
                     : "";
 
-              const eventEndDate = event.event_end_date || "";
-
-              const formatDate = (dateString) => {
-                const [year, month, day] = dateString
-                  .split("-")
-                  .map(Number);
-
-                const monthNames = [
-                  "January",
-                  "February",
-                  "March",
-                  "April",
-                  "May",
-                  "June",
-                  "July",
-                  "August",
-                  "September",
-                  "October",
-                  "November",
-                  "December",
-                ];
-
-                return `${day} ${monthNames[month - 1]} ${year}`;
-              };
+              const eventEndDate =
+                event.event_end_date && event.event_end_date !== "0000-00-00"
+                  ? event.event_end_date
+                  : "";
 
               const formattedEventDate =
                 eventDate && eventEndDate
@@ -124,13 +132,13 @@ export default function EventsPage() {
                     ? formatDate(eventDate)
                     : "Date Coming Soon July-August";
 
-              const eventKey = event.id || event._id || index;
+              const isRegistrationOpen = Number(event.registration_open) === 1;
 
-              const isRegistrationOpen =
-                Number(event.registration_open) === 1;
+              const registrationLink = event.registration_link || "";
 
-              const registrationLink =
-                event.registration_link || "";
+              const isPicnicEvent = eventTitle
+                .toLowerCase()
+                .includes("picnic");
 
               return (
                 <div
@@ -146,51 +154,52 @@ export default function EventsPage() {
                       />
                     )}
 
-                    {/* DATE BADGE */}
-                    {eventDate ? (() => {
-                      const [year, month, day] =
-                        eventDate.split("-").map(Number);
+                    {eventDate ? (
+                      (() => {
+                        const [year, month, day] = eventDate
+                          .split("-")
+                          .map(Number);
 
-                      const monthNames = [
-                        "JAN",
-                        "FEB",
-                        "MAR",
-                        "APR",
-                        "MAY",
-                        "JUN",
-                        "JUL",
-                        "AUG",
-                        "SEP",
-                        "OCT",
-                        "NOV",
-                        "DEC",
-                      ];
+                        const monthNames = [
+                          "JAN",
+                          "FEB",
+                          "MAR",
+                          "APR",
+                          "MAY",
+                          "JUN",
+                          "JUL",
+                          "AUG",
+                          "SEP",
+                          "OCT",
+                          "NOV",
+                          "DEC",
+                        ];
 
-                      return (
-                        <div className="absolute left-4 top-4 rounded-2xl bg-white/95 backdrop-blur-sm px-4 py-2 shadow-lg text-center">
-                          <p className="text-xs font-bold text-orange-500">
-                            {monthNames[month - 1]}
-                          </p>
+                        return (
+                          <div className="absolute left-4 top-4 rounded-2xl bg-white/95 px-4 py-2 text-center shadow-lg backdrop-blur-sm">
+                            <p className="text-xs font-bold text-orange-500">
+                              {monthNames[month - 1]}
+                            </p>
 
-                          <p className="text-xl font-extrabold text-gray-900 leading-none">
-                            {day}
-                          </p>
+                            <p className="text-xl font-extrabold leading-none text-gray-900">
+                              {day}
+                            </p>
 
-                          <p className="text-[11px] font-semibold text-gray-500">
-                            {year}
-                          </p>
-                        </div>
-                      );
-                    })() : (
-                      <div className="absolute left-4 top-4 rounded-2xl bg-orange-500 px-4 py-2 shadow-lg text-center">
-                        <p className="text-xs font-bold text-white">
-                          COMING
-                        </p>
+                            <p className="text-[11px] font-semibold text-gray-500">
+                              {year}
+                            </p>
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      <div className="absolute left-4 top-4 rounded-2xl bg-orange-500 px-4 py-2 text-center shadow-lg">
+                        <p className="text-xs font-bold text-white">COMING</p>
 
-                        <p className="text-sm font-extrabold text-white leading-none">
+                        <p className="text-sm font-extrabold leading-none text-white">
                           SOON
                         </p>
-                        <p className="text-sm font-extrabold text-white leading-none">
+
+                        <p className="text-sm font-extrabold leading-none text-white">
                           JUL-AUG
                         </p>
                       </div>
@@ -213,18 +222,18 @@ export default function EventsPage() {
                     <strong>Location:</strong> {eventLocation}
                   </p>
 
-                  {isRegistrationOpen && registrationLink && (
-                    <div className="mt-5">
-                      <button
-                        onClick={() =>
-                          window.open(registrationLink, "_blank")
-                        }
-                        className="rounded-lg bg-[#d4503e] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#bb4332]"
-                      >
-                        Register / RSVP
-                      </button>
-                    </div>
-                  )}
+                  <div className="mt-5">
+                    {isPicnicEvent && (
+                      <div className="mt-5">
+                        <button
+                          onClick={() => handleBookNow(eventKey)}
+                          className="rounded-lg bg-[#d4503e] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#bb4332]"
+                        >
+                          Book Now
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}

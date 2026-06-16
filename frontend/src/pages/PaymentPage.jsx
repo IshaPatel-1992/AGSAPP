@@ -6,7 +6,7 @@ import { api } from "../api";
 import PaymentCheckoutForm from "../components/PaymentCheckoutForm";
 import PaymentTermsNotice from "../components/PaymentTermsNotice";
 
-const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
+const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY_TEST);
 
 export default function PaymentPage() {
   const location = useLocation();
