@@ -9,7 +9,7 @@ import {
 } from "@stripe/react-stripe-js";
 import { api } from "../api";
 
-const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY_TEST);
+const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
 
 export default function EventPaymentPage() {
   const { eventId } = useParams();

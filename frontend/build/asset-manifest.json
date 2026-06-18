@@ -1,16 +1,18 @@
 {
   "files": {
-    "main.css": "/static/css/main.19d735e2.css",
-    "main.js": "/static/js/main.dc4324c7.js",
+    "main.css": "/static/css/main.c93c3ad7.css",
+    "main.js": "/static/js/main.e9797c50.js",
+    "static/media/picnic-banner1.jpg": "/static/media/picnic-banner1.f08b44aa0d664f474f08.jpg",
     "static/media/shutterstock_2506871797.jpg": "/static/media/shutterstock_2506871797.8269a7cf64dadd375c8e.jpg",
+    "static/media/ags-logo-new-2026.png": "/static/media/ags-logo-new-2026.1f1e0cb24c1463fca78a.png",
     "static/media/Team1.jpg": "/static/media/Team1.e89700f3aa3caf7e96dd.jpg",
     "static/media/Airdrie-Samaj-Logo-png.png": "/static/media/Airdrie-Samaj-Logo-png.9683689adbfa5263fd17.png",
     "index.html": "/index.html",
-    "main.19d735e2.css.map": "/static/css/main.19d735e2.css.map",
-    "main.dc4324c7.js.map": "/static/js/main.dc4324c7.js.map"
+    "main.c93c3ad7.css.map": "/static/css/main.c93c3ad7.css.map",
+    "main.e9797c50.js.map": "/static/js/main.e9797c50.js.map"
   },
   "entrypoints": [
-    "static/css/main.19d735e2.css",
-    "static/js/main.dc4324c7.js"
+    "static/css/main.c93c3ad7.css",
+    "static/js/main.e9797c50.js"
   ]
 }
