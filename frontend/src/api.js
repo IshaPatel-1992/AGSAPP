@@ -18,6 +18,7 @@ async function request(endpoint, options = {}) {
   }
 
   const text = await res.text();
+
   try {
     return JSON.parse(text);
   } catch {

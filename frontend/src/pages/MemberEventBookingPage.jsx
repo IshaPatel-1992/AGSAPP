@@ -2,43 +2,55 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
 
-export default function MemberEventBookingPage() {
-  const { eventId } = useParams();
-  const navigate = useNavigate();
+const EMPTY_GROUPS = {
+  adult: [],
+  child: [],
+  student: [],
+  senior: [],
+};
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [membership, setMembership] = useState(null);
-
-  const [prices, setPrices] = useState({
+const EMPTY_LIMITS = {
   adult: 0,
   child: 0,
   student: 0,
   senior: 0,
-});
+};
 
-  const [limits, setLimits] = useState({
-    adult: 0,
-    child: 0,
-    student: 0,
-    senior: 0,
-  });
+const EMPTY_PRICES = {
+  adult: 0,
+  child: 0,
+  student: 0,
+  senior: 0,
+};
 
-  const [people, setPeople] = useState({
-    adult: [],
-    child: [],
-    student: [],
-    senior: [],
-  });
+export default function MemberEventBookingPage() {
+  const { eventId } = useParams();
+  const navigate = useNavigate();
 
-  const [adultQty, setAdultQty] = useState(0);
-  const [childQty, setChildQty] = useState(0);
-  const [studentQty, setStudentQty] = useState(0);
-  const [seniorQty, setSeniorQty] = useState(0);
+  const [noOnionNoGarlicQty, setNoOnionNoGarlicQty] = useState(0);
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const [membership, setMembership] = useState(null);
+  const [prices, setPrices] = useState(EMPTY_PRICES);
+  const [limits, setLimits] = useState(EMPTY_LIMITS);
+  const [people, setPeople] = useState(EMPTY_GROUPS);
+
+  const [alreadyFullyBooked, setAlreadyFullyBooked] = useState(false);
+  const [alreadyBookedPeople, setAlreadyBookedPeople] = useState(EMPTY_GROUPS);
+  const [pendingBooking, setPendingBooking] = useState(null);
+
+  const [selectedPeople, setSelectedPeople] = useState(EMPTY_GROUPS);
 
   useEffect(() => {
     const checkEligibility = async () => {
       try {
+        setLoading(true);
+        setError("");
+        setAlreadyFullyBooked(false);
+        setPendingBooking(null);
+
         const savedMember = localStorage.getItem("member");
 
         if (!savedMember) {
@@ -65,24 +77,23 @@ export default function MemberEventBookingPage() {
           return;
         }
 
-        setMembership(result.membership);
-        setPrices(
-  result.prices || {
-    adult: 0,
-    child: 0,
-    student: 0,
-    senior: 0,
-  }
-);
-        setLimits(result.limits || limits);
-        setPeople(
-          result.people || {
-            adult: [],
-            child: [],
-            student: [],
-            senior: [],
-          }
-        );
+        const isFullyBooked = Boolean(result.already_fully_booked);
+
+        setMembership(result.membership || null);
+        setPrices(result.prices || EMPTY_PRICES);
+        setLimits(result.limits || EMPTY_LIMITS);
+        setPeople(result.available_people || result.people || EMPTY_GROUPS);
+        setAlreadyBookedPeople(result.already_booked_people || EMPTY_GROUPS);
+        setPendingBooking(result.pending_booking || null);
+        setAlreadyFullyBooked(isFullyBooked);
+        setSelectedPeople(EMPTY_GROUPS);
+
+        if (isFullyBooked) {
+          setError(
+            result.message ||
+              "You have already purchased tickets for all registered members."
+          );
+        }
       } catch (err) {
         console.error("Eligibility error:", err);
         setError("Could not connect to backend.");
@@ -94,6 +105,13 @@ export default function MemberEventBookingPage() {
     checkEligibility();
   }, [eventId, navigate]);
 
+  const adultQty = selectedPeople.adult.length;
+  const childQty = selectedPeople.child.length;
+  const studentQty = selectedPeople.student.length;
+  const seniorQty = selectedPeople.senior.length;
+
+  const totalTickets = adultQty + childQty + studentQty + seniorQty;
+
   const totalAmount = useMemo(() => {
     return (
       adultQty * Number(prices.adult || 0) +
@@ -103,20 +121,52 @@ export default function MemberEventBookingPage() {
     );
   }, [adultQty, childQty, studentQty, seniorQty, prices]);
 
-  const totalTickets = adultQty + childQty + studentQty + seniorQty;
+  useEffect(() => {
+    if (noOnionNoGarlicQty > totalTickets) {
+      setNoOnionNoGarlicQty(totalTickets);
+    }
+  }, [totalTickets, noOnionNoGarlicQty]);
 
-  const selectedPeople = useMemo(() => {
-    return {
-      adult: people.adult.slice(0, adultQty),
-      child: people.child.slice(0, childQty),
-      student: people.student.slice(0, studentQty),
-      senior: people.senior.slice(0, seniorQty),
-    };
-  }, [people, adultQty, childQty, studentQty, seniorQty]);
+  const availableCount =
+    Number(limits.adult || 0) +
+    Number(limits.child || 0) +
+    Number(limits.student || 0) +
+    Number(limits.senior || 0);
+
+  const getPersonKey = (person, index) => {
+    if (typeof person === "string") return `${person}-${index}`;
+    return person?.id || person?.membership_person_id || person?.name || index;
+  };
+
+  const togglePerson = (type, person, index) => {
+    const key = getPersonKey(person, index);
+
+    setSelectedPeople((prev) => {
+      const currentList = prev[type] || [];
+
+      const alreadySelected = currentList.some(
+        (item, itemIndex) => getPersonKey(item, itemIndex) === key
+      );
+
+      if (alreadySelected) {
+        return {
+          ...prev,
+          [type]: currentList.filter(
+            (item, itemIndex) => getPersonKey(item, itemIndex) !== key
+          ),
+        };
+      }
+
+      return {
+        ...prev,
+        [type]: [...currentList, person],
+      };
+    });
+  };
 
   const handleContinue = () => {
     if (totalTickets === 0) {
-      alert("Please select at least one ticket.");
+      alert("Please select at least one ticket holder.");
       return;
     }
 
@@ -134,6 +184,8 @@ export default function MemberEventBookingPage() {
       student_qty: studentQty,
       senior_qty: seniorQty,
 
+      no_onion_no_garlic_qty: noOnionNoGarlicQty,
+
       adult_price: Number(prices.adult || 0),
       child_price: Number(prices.child || 0),
       student_price: Number(prices.student || 0),
@@ -144,6 +196,7 @@ export default function MemberEventBookingPage() {
       total_amount: totalAmount,
     };
 
+    console.log("Member bookingData:", bookingData);
     sessionStorage.setItem("eventBookingData", JSON.stringify(bookingData));
 
     navigate(`/events/${eventId}/payment`);
@@ -156,19 +209,47 @@ export default function MemberEventBookingPage() {
   if (error) {
     return (
       <section className="min-h-screen bg-[#fdf6ef] px-6 py-10">
-        <div className="mx-auto max-w-[700px] rounded-3xl bg-white p-8 text-center shadow">
+        <div className="mx-auto max-w-[760px] rounded-3xl bg-white p-8 text-center shadow">
           <h1 className="text-2xl font-bold text-[#d4503e]">
-            Member Booking Not Available
+            {alreadyFullyBooked
+              ? "Tickets Already Purchased"
+              : "Member Booking Not Available"}
           </h1>
 
           <p className="mt-4 text-gray-600">{error}</p>
 
-          <button
-            onClick={() => navigate(`/events/${eventId}/booking`)}
-            className="mt-6 rounded-lg bg-[#d4503e] px-5 py-2 font-semibold text-white"
-          >
-            Go Back
-          </button>
+          {alreadyFullyBooked && (
+            <>
+              <AlreadyBookedPeople people={alreadyBookedPeople} />
+
+              <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:justify-center">
+                <button
+                  onClick={() => navigate("/member/mytickets")}
+                  className="rounded-lg bg-[#d4503e] px-5 py-2 font-semibold text-white transition hover:bg-[#bb4332]"
+                >
+                  Go to My Tickets
+                </button>
+
+                <button
+                  onClick={() =>
+                    navigate(`/events/${eventId}/booking/non-member`)
+                  }
+                  className="rounded-lg border border-[#d4503e] px-5 py-2 font-semibold text-[#d4503e] transition hover:bg-[#fdf6ef]"
+                >
+                  Buy Non-Member Tickets
+                </button>
+              </div>
+            </>
+          )}
+
+          {!alreadyFullyBooked && (
+            <button
+              onClick={() => navigate(`/events/${eventId}/booking`)}
+              className="mt-6 rounded-lg bg-[#d4503e] px-5 py-2 font-semibold text-white"
+            >
+              Go Back
+            </button>
+          )}
         </div>
       </section>
     );
@@ -207,67 +288,68 @@ export default function MemberEventBookingPage() {
             </p>
           </div>
 
-          <div className="mt-8">
-            <TicketCounter
+          {pendingBooking && (
+            <div className="mt-5 rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-900">
+              You have a previous pending booking attempt. You can still book
+              available remaining members here. If your payment was already
+              completed, please check My Tickets first.
+            </div>
+          )}
+
+          <AvailableNotice availableCount={availableCount} />
+
+          <div className="mt-8 space-y-5">
+            <PersonSelector
               title="Adult"
+              type="adult"
               price={prices.adult}
-              value={adultQty}
-              max={limits.adult}
-              names={people.adult}
-              selectedCount={adultQty}
-              onMinus={() => setAdultQty((prev) => Math.max(0, prev - 1))}
-              onPlus={() =>
-                setAdultQty((prev) =>
-                  Math.min(Number(limits.adult || 0), prev + 1)
-                )
-              }
+              people={people.adult}
+              selectedPeople={selectedPeople.adult}
+              onToggle={togglePerson}
             />
 
-            <TicketCounter
+            <PersonSelector
               title="Kid Under 10"
+              type="child"
               price={prices.child}
-              value={childQty}
-              max={limits.child}
-              names={people.child}
-              selectedCount={childQty}
-              onMinus={() => setChildQty((prev) => Math.max(0, prev - 1))}
-              onPlus={() =>
-                setChildQty((prev) =>
-                  Math.min(Number(limits.child || 0), prev + 1)
-                )
-              }
+              people={people.child}
+              selectedPeople={selectedPeople.child}
+              onToggle={togglePerson}
             />
 
-            <TicketCounter
+            <PersonSelector
               title="Student"
+              type="student"
               price={prices.student}
-              value={studentQty}
-              max={limits.student}
-              names={people.student}
-              selectedCount={studentQty}
-              onMinus={() => setStudentQty((prev) => Math.max(0, prev - 1))}
-              onPlus={() =>
-                setStudentQty((prev) =>
-                  Math.min(Number(limits.student || 0), prev + 1)
-                )
-              }
+              people={people.student}
+              selectedPeople={selectedPeople.student}
+              onToggle={togglePerson}
             />
 
-            <TicketCounter
+            <PersonSelector
               title="Senior"
+              type="senior"
               price={prices.senior}
-              value={seniorQty}
-              max={limits.senior}
-              names={people.senior}
-              selectedCount={seniorQty}
-              onMinus={() => setSeniorQty((prev) => Math.max(0, prev - 1))}
-              onPlus={() =>
-                setSeniorQty((prev) =>
-                  Math.min(Number(limits.senior || 0), prev + 1)
-                )
-              }
+              people={people.senior}
+              selectedPeople={selectedPeople.senior}
+              onToggle={togglePerson}
             />
           </div>
+
+          <AlreadyBookedPeople people={alreadyBookedPeople} />
+
+          <FoodPreferenceCounter
+            value={noOnionNoGarlicQty}
+            max={totalTickets}
+            onMinus={() =>
+              setNoOnionNoGarlicQty((prev) => Math.max(0, prev - 1))
+            }
+            onPlus={() =>
+              setNoOnionNoGarlicQty((prev) =>
+                Math.min(totalTickets, prev + 1)
+              )
+            }
+          />
 
           <BookingSummary
             totalTickets={totalTickets}
@@ -277,7 +359,8 @@ export default function MemberEventBookingPage() {
 
           <button
             onClick={handleContinue}
-            className="mt-8 w-full rounded-xl bg-[#d4503e] px-5 py-3 font-bold text-white transition hover:bg-[#bb4332]"
+            disabled={totalTickets === 0}
+            className="mt-8 w-full rounded-xl bg-[#d4503e] px-5 py-3 font-bold text-white transition hover:bg-[#bb4332] disabled:cursor-not-allowed disabled:bg-gray-300"
           >
             Continue to Payment
           </button>
@@ -287,46 +370,109 @@ export default function MemberEventBookingPage() {
   );
 }
 
-function TicketCounter({
+function PersonSelector({
   title,
+  type,
   price,
-  value,
-  max,
-  names = [],
-  selectedCount = 0,
-  onMinus,
-  onPlus,
+  people = [],
+  selectedPeople = [],
+  onToggle,
 }) {
-  const isDisabled = Number(max || 0) === 0;
   const isFree = Number(price || 0) === 0;
 
   const getNameText = (person) => {
     if (typeof person === "string") return person;
-    return person?.name || "";
+    return person?.name || person?.full_name || "";
   };
 
+  const getPersonKey = (person, index) => {
+    if (typeof person === "string") return `${person}-${index}`;
+    return person?.id || person?.membership_person_id || person?.name || index;
+  };
+
+  const isSelected = (person, index) => {
+    const key = getPersonKey(person, index);
+
+    return selectedPeople.some(
+      (item, itemIndex) => getPersonKey(item, itemIndex) === key
+    );
+  };
+
+  if (!people?.length) {
+    return null;
+  }
+
   return (
-    <div
-      className={`mb-4 rounded-2xl border p-4 ${
-        isDisabled ? "border-gray-100 bg-gray-50 opacity-60" : "border-gray-200"
-      }`}
-    >
-      <div className="flex items-start justify-between gap-4">
+    <div className="rounded-2xl border border-gray-200 p-4">
+      <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 className="font-bold text-gray-900">{title} Ticket</h3>
-
+          <h3 className="font-bold text-gray-900">{title} Tickets</h3>
           <p className="text-sm text-gray-600">
-            {isFree ? "Free" : `$${Number(price || 0).toFixed(2)} each`}
+            Select the member name who needs a ticket.
           </p>
-
-          <p className="mt-1 text-xs text-gray-500">Allowed: {max}</p>
         </div>
+
+        <div className="text-sm font-bold text-[#d4503e]">
+          {isFree ? "Free" : `$${Number(price || 0).toFixed(2)} each`}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {people.map((person, index) => {
+          const name = getNameText(person);
+          const checked = isSelected(person, index);
+
+          return (
+            <label
+              key={`${type}-${getPersonKey(person, index)}`}
+              className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3 transition ${
+                checked
+                  ? "border-[#d4503e] bg-[#fff3ef]"
+                  : "border-gray-200 bg-white hover:bg-gray-50"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => onToggle(type, person, index)}
+                  className="h-5 w-5 accent-[#d4503e]"
+                />
+
+                <span className="font-semibold text-gray-800">{name}</span>
+              </div>
+
+              <span className="text-sm font-semibold text-gray-600">
+                {isFree ? "Free" : `$${Number(price || 0).toFixed(2)}`}
+              </span>
+            </label>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function FoodPreferenceCounter({ value, max, onMinus, onPlus }) {
+  return (
+    <div className="mt-6 rounded-2xl border border-orange-200 bg-orange-50 p-5">
+      <h3 className="font-bold text-gray-900">Food Preference</h3>
+
+      <p className="mt-1 text-sm text-gray-600">
+        How many selected ticket holders need No Onion / No Garlic food?
+      </p>
+
+      <div className="mt-4 flex items-center justify-between">
+        <span className="text-sm font-semibold text-gray-700">
+          No Onion / No Garlic
+        </span>
 
         <div className="flex items-center gap-3">
           <button
+            type="button"
             onClick={onMinus}
-            disabled={isDisabled || value <= 0}
-            className="h-9 w-9 rounded-full bg-gray-100 text-xl font-bold text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={value <= 0}
+            className="h-9 w-9 rounded-full bg-gray-100 text-xl font-bold text-gray-700 disabled:opacity-40"
           >
             -
           </button>
@@ -334,42 +480,65 @@ function TicketCounter({
           <span className="w-8 text-center font-bold">{value}</span>
 
           <button
+            type="button"
             onClick={onPlus}
-            disabled={isDisabled || value >= Number(max || 0)}
-            className="h-9 w-9 rounded-full bg-[#d4503e] text-xl font-bold text-white disabled:cursor-not-allowed disabled:bg-gray-300"
+            disabled={value >= max || max === 0}
+            className="h-9 w-9 rounded-full bg-[#d4503e] text-xl font-bold text-white disabled:bg-gray-300"
           >
             +
           </button>
         </div>
       </div>
 
-      {names.length > 0 && (
-        <div className="mt-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-            Member Names
-          </p>
+      <p className="mt-2 text-xs text-gray-500">Maximum allowed: {max}</p>
+    </div>
+  );
+}
 
-          <div className="flex flex-wrap gap-2">
-            {names.map((person, index) => {
-              const name = getNameText(person);
-              const isSelected = index < selectedCount;
+function AvailableNotice({ availableCount }) {
+  if (availableCount <= 0) return null;
 
-              return (
-                <span
-                  key={`${name}-${index}`}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                    isSelected
-                      ? "bg-[#d4503e] text-white"
-                      : "bg-[#fdf6ef] text-[#d4503e]"
-                  }`}
-                >
-                  {name}
-                </span>
-              );
-            })}
+  return (
+    <div className="mt-5 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+      You can book tickets for {availableCount} remaining registered member
+      {availableCount === 1 ? "" : "s"}.
+    </div>
+  );
+}
+
+function AlreadyBookedPeople({ people }) {
+  const hasBooked =
+    people.adult?.length > 0 ||
+    people.child?.length > 0 ||
+    people.student?.length > 0 ||
+    people.senior?.length > 0;
+
+  if (!hasBooked) return null;
+
+  const getNameText = (person) => {
+    if (typeof person === "string") return person;
+    return person?.name || person?.full_name || "";
+  };
+
+  return (
+    <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4 text-left">
+      <p className="mb-3 text-sm font-bold text-gray-900">
+        Already Purchased Tickets
+      </p>
+
+      {Object.entries(people).map(([type, list]) => {
+        if (!list?.length) return null;
+
+        const names = list.map(getNameText).filter(Boolean);
+
+        if (!names.length) return null;
+
+        return (
+          <div key={type} className="mb-2 text-sm text-gray-700">
+            <strong className="capitalize">{type}:</strong> {names.join(", ")}
           </div>
-        </div>
-      )}
+        );
+      })}
     </div>
   );
 }
@@ -383,7 +552,7 @@ function BookingSummary({ totalTickets, totalAmount, selectedPeople }) {
 
   const getNameText = (person) => {
     if (typeof person === "string") return person;
-    return person?.name || "";
+    return person?.name || person?.full_name || "";
   };
 
   return (

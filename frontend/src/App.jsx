@@ -22,9 +22,11 @@ import OurTeam from "./components/OurTeam";
 import AuthCallback from "./pages/AuthCallback";
 import EventBookingPage from "./pages/EventBookingPage";
 import MemberEventBookingPage from "./pages/MemberEventBookingPage";
+import MyEventTickets from "./components/MyEventTickets";
 import NonMemberEventBookingPage from "./pages/NonMemberEventBookingPage";
 import EventPaymentPage from "./pages/EventPaymentPage";
 import EventPaymentSuccessPage from "./pages/EventPaymentSuccessPage";
+import FindTicketPage from "./pages/FindTicketPage";
 
 export default function App() {
   return (
@@ -45,7 +47,15 @@ export default function App() {
         <Route path="/mymemberships" element={<MyMemberships />} />
         <Route path="/events/:eventId/booking" element={<EventBookingPage />} />
         <Route path="/events/:eventId/booking/member" element={<MemberEventBookingPage />} />
-        <Route path="/events/:eventId/booking/non-member" element={<NonMemberEventBookingPage />} />
+        <Route
+          path="/member/mytickets"
+          element={<MyEventTickets />}
+        />
+        <Route
+          path="/events/:eventId/booking/non-member"
+          element={<NonMemberEventBookingPage />}
+        />
+        <Route path="/events/find-ticket" element={<FindTicketPage />} />
         <Route path="/events/:eventId/payment" element={<EventPaymentPage />} />
         <Route path="/events/payment-success" element={<EventPaymentSuccessPage />} />
         <Route path="/payment" element={<PaymentPage />} />

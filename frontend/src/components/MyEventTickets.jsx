@@ -1,17 +1,15 @@
 import { useEffect, useState } from "react";
-import { API_BASE_URL, apiGet } from "../config";
+import { api } from "../api";
+import { API_BASE_URL } from "../config";
 
 export default function MyEventTickets() {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [downloadingId, setDownloadingId] = useState(null);
 
-  const buildPdfUrl = (bookingId) => {
-    const base = API_BASE_URL.endsWith("/")
-      ? API_BASE_URL
-      : `${API_BASE_URL}/`;
-
-    return `${base}generateEventTicketPdf.php?booking_id=${bookingId}`;
-  };
+  const base = API_BASE_URL.endsWith("/")
+    ? API_BASE_URL
+    : `${API_BASE_URL}/`;
 
   useEffect(() => {
     loadTickets();
@@ -44,6 +42,38 @@ export default function MyEventTickets() {
     }
   };
 
+  const handleDownloadTicket = async (ticket) => {
+    if (!ticket?.booking_id) {
+      alert("Booking ID not found.");
+      return;
+    }
+
+    try {
+      setDownloadingId(ticket.booking_id);
+
+      // If PDF path is not saved yet, generate it first
+      if (!ticket.ticket_pdf_path) {
+        await fetch(
+          `${base}generateEventTicketPdf.php?booking_id=${ticket.booking_id}`
+        );
+
+        // Refresh ticket list so ticket_pdf_path updates on frontend too
+        await loadTickets();
+      }
+
+      // Download existing or newly generated PDF
+      window.open(
+        `${base}downloadEventTicket.php?booking_id=${ticket.booking_id}`,
+        "_blank"
+      );
+    } catch (err) {
+      console.error("Download ticket error:", err);
+      alert("Unable to download ticket.");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   if (loading) return <p>Loading tickets...</p>;
 
   if (!tickets.length) {
@@ -64,14 +94,16 @@ export default function MyEventTickets() {
           <p>Tickets: {ticket.ticket_count}</p>
           <p>Amount Paid: ${ticket.total_amount}</p>
 
-         <a
-  href={`${API_BASE_URL}generateEventTicketPdf.php?booking_id=${ticket.booking_id}`}
-  target="_blank"
-  rel="noreferrer"
-  className="mt-3 inline-block rounded-lg bg-green-600 px-4 py-2 text-white"
->
-  Download Ticket
-</a>
+          <button
+            type="button"
+            onClick={() => handleDownloadTicket(ticket)}
+            disabled={downloadingId === ticket.booking_id}
+            className="mt-3 inline-block rounded-lg bg-green-600 px-4 py-2 text-white disabled:opacity-60"
+          >
+            {downloadingId === ticket.booking_id
+              ? "Preparing Ticket..."
+              : "Download Ticket"}
+          </button>
         </div>
       ))}
     </div>

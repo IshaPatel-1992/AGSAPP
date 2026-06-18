@@ -54,11 +54,17 @@ export default function EventsPage() {
         const result = await api.get("/getEvents.php");
 
         if (result?.success) {
-          setEvents(filterUpcomingEvents(result.data || []));
+          const visibleEvents = (result.data || []).filter(
+            (event) => Number(event.registration_open) !== -1
+          );
+
+          setEvents(filterUpcomingEvents(visibleEvents));
         } else if (Array.isArray(result)) {
-          setEvents(filterUpcomingEvents(result));
-        } else {
-          setError(result?.message || "Failed to fetch events");
+          const visibleEvents = result.filter(
+            (event) => Number(event.registration_open) !== -1
+          );
+
+          setEvents(filterUpcomingEvents(visibleEvents));
         }
       } catch (err) {
         setError("Could not connect to backend");
@@ -82,7 +88,7 @@ export default function EventsPage() {
     const savedMember = localStorage.getItem("member");
 
     if (savedMember) {
-      navigate(`/events/${eventId}/booking/member`);
+      navigate(`/events/${eventId}/booking`);
     } else {
       navigate(`/events/${eventId}/booking`);
     }

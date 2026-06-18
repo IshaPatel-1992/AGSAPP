@@ -62,6 +62,42 @@ export default function EventPaymentPage() {
     }
   };
 
+  const handleCreateFreeBooking = async () => {
+    try {
+      setLoadingPayment(true);
+      setError("");
+
+      const result = await api.post("createFreeEventBooking.php", bookingData);
+
+      if (!result?.success) {
+        setError(result?.message || "Unable to create free booking.");
+        return;
+      }
+
+      sessionStorage.removeItem("eventBookingData");
+
+      const successData = {
+        booking_id: result.booking_id,
+        booking_number: result.booking_number,
+        tickets_created: result.tickets_created || bookingData?.total_tickets || 0,
+        buyer_name: result.buyer_name || bookingData?.buyer_name || "",
+        buyer_email: result.buyer_email || bookingData?.buyer_email || "",
+        payment_type: "free",
+      };
+
+      sessionStorage.setItem("eventPaymentSuccess", JSON.stringify(successData));
+
+      navigate(`/events/payment-success`, {
+        state: successData,
+      });
+    } catch (err) {
+      console.error("Free booking error:", err);
+      setError("Could not create free booking.");
+    } finally {
+      setLoadingPayment(false);
+    }
+  };
+
   if (!bookingData) {
     return <p className="px-6 py-10 text-center">Loading payment...</p>;
   }
@@ -180,11 +216,17 @@ export default function EventPaymentPage() {
 
           {!paymentInfo ? (
             <button
-              onClick={handleCreatePaymentIntent}
+              onClick={totalAmount <= 0 ? handleCreateFreeBooking : handleCreatePaymentIntent}
               disabled={loadingPayment}
               className="mt-8 w-full rounded-xl bg-[#d4503e] px-5 py-3 font-bold text-white transition hover:bg-[#bb4332] disabled:opacity-60"
             >
-              {loadingPayment ? "Preparing Payment..." : "Proceed to Payment"}
+              {loadingPayment
+                ? totalAmount <= 0
+                  ? "Generating Tickets..."
+                  : "Preparing Payment..."
+                : totalAmount <= 0
+                  ? "Confirm Free Booking"
+                  : "Proceed to Payment"}
             </button>
           ) : (
             <Elements
@@ -197,6 +239,7 @@ export default function EventPaymentPage() {
                 bookingId={paymentInfo.booking_id}
                 bookingNumber={paymentInfo.booking_number}
                 paymentIntentId={paymentInfo.paymentIntentId}
+                bookingData={bookingData}
               />
             </Elements>
           )}
@@ -206,7 +249,7 @@ export default function EventPaymentPage() {
   );
 }
 
-function EventCheckoutForm({ bookingId, bookingNumber, paymentIntentId }) {
+function EventCheckoutForm({ bookingId, bookingNumber, paymentIntentId, bookingData }) {
   const stripe = useStripe();
   const elements = useElements();
   const navigate = useNavigate();
@@ -240,22 +283,32 @@ function EventCheckoutForm({ bookingId, bookingNumber, paymentIntentId }) {
           result.paymentIntent?.id || paymentIntentId,
       });
 
-      if (!confirmResult?.success) {
-        setPaymentError(
-          confirmResult?.message || "Payment completed but confirmation failed."
-        );
-        setPaying(false);
-        return;
-      }
+      console.log(confirmResult);
 
       sessionStorage.removeItem("eventBookingData");
 
+      const successData = {
+        booking_id: bookingId,
+        booking_number: bookingNumber,
+        tickets_created:
+          confirmResult?.tickets_created ||
+          bookingData?.total_tickets ||
+          0,
+        buyer_name:
+          confirmResult?.buyer_name ||
+          bookingData?.buyer_name ||
+          "",
+        buyer_email:
+          confirmResult?.buyer_email ||
+          bookingData?.buyer_email ||
+          "",
+          payment_type: "paid",
+      };
+
+      sessionStorage.setItem("eventPaymentSuccess", JSON.stringify(successData));
+
       navigate(`/events/payment-success`, {
-        state: {
-          booking_id: bookingId,
-          booking_number: bookingNumber,
-          tickets_created: confirmResult.tickets_created,
-        },
+        state: successData,
       });
     } catch (err) {
       console.error("Confirm event payment error:", err);
@@ -313,7 +366,10 @@ function SelectedPeople({ selectedPeople }) {
 
   const getNameText = (person) => {
     if (typeof person === "string") return person;
-    return person?.name || "";
+
+    const fullName = `${person?.first_name || ""} ${person?.last_name || ""}`.trim();
+
+    return person?.name || fullName || "";
   };
 
   const hasPeople = Object.values(selectedPeople).some(
@@ -333,8 +389,10 @@ function SelectedPeople({ selectedPeople }) {
 
         return (
           <div key={type} className="mb-2 text-sm text-gray-700">
-            <strong className="capitalize">{type}:</strong>{" "}
-            {list.map(getNameText).join(", ")}
+            <strong className="capitalize">
+              {type === "child" ? "Kid Under 10" : type}:
+            </strong>{" "}
+            {list.map(getNameText).filter(Boolean).join(", ")}
           </div>
         );
       })}

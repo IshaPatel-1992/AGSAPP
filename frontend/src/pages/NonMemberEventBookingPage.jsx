@@ -1,24 +1,36 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
+const INITIAL_ATTENDEES = {
+  adult: [],
+  child: [],
+  student: [],
+  senior: [],
+};
+
 export default function NonMemberEventBookingPage() {
   const { eventId } = useParams();
   const navigate = useNavigate();
+
+  const [noOnionNoGarlicQty, setNoOnionNoGarlicQty] = useState(0);
 
   const [adultQty, setAdultQty] = useState(0);
   const [childQty, setChildQty] = useState(0);
   const [studentQty, setStudentQty] = useState(0);
   const [seniorQty, setSeniorQty] = useState(0);
 
-  const [buyerName, setBuyerName] = useState("");
+  const [buyerFirstName, setBuyerFirstName] = useState("");
+  const [buyerLastName, setBuyerLastName] = useState("");
   const [buyerEmail, setBuyerEmail] = useState("");
   const [buyerPhone, setBuyerPhone] = useState("");
 
+  const [attendees, setAttendees] = useState(INITIAL_ATTENDEES);
+
   const prices = {
-    adult: 15,
-    child: 10,
-    student: 12,
-    senior: 12,
+    adult: 25,
+    child: 0,
+    student: 25,
+    senior: 25,
   };
 
   const totalAmount = useMemo(() => {
@@ -32,9 +44,78 @@ export default function NonMemberEventBookingPage() {
 
   const totalTickets = adultQty + childQty + studentQty + seniorQty;
 
+  const updateQty = (type, newQty) => {
+    const qty = Math.max(0, newQty);
+
+    if (type === "adult") setAdultQty(qty);
+    if (type === "child") setChildQty(qty);
+    if (type === "student") setStudentQty(qty);
+    if (type === "senior") setSeniorQty(qty);
+
+    setAttendees((prev) => {
+      const current = prev[type] || [];
+      const updated = [...current];
+
+      if (qty > updated.length) {
+        while (updated.length < qty) {
+          updated.push({ first_name: "", last_name: "" });
+        }
+      } else {
+        updated.length = qty;
+      }
+
+      return {
+        ...prev,
+        [type]: updated,
+      };
+    });
+  };
+
+  const updateAttendee = (type, index, field, value) => {
+    setAttendees((prev) => {
+      const updatedList = [...prev[type]];
+      updatedList[index] = {
+        ...updatedList[index],
+        [field]: value,
+      };
+
+      return {
+        ...prev,
+        [type]: updatedList,
+      };
+    });
+  };
+
+  const validateAttendees = () => {
+    const ticketTypes = ["adult", "child", "student", "senior"];
+
+    for (const type of ticketTypes) {
+      for (let i = 0; i < attendees[type].length; i++) {
+        const person = attendees[type][i];
+
+        if (!person.first_name.trim()) {
+          alert(`Please enter first name for ${formatTicketTitle(type)} ${i + 1}.`);
+          return false;
+        }
+
+        if (type !== "child" && !person.last_name.trim()) {
+          alert(`Please enter last name for ${formatTicketTitle(type)} ${i + 1}.`);
+          return false;
+        }
+      }
+    }
+
+    return true;
+  };
+
   const handleContinue = () => {
-    if (!buyerName.trim() || !buyerEmail.trim() || !buyerPhone.trim()) {
-      alert("Please enter name, email, and phone number.");
+    if (
+      !buyerFirstName.trim() ||
+      !buyerLastName.trim() ||
+      !buyerEmail.trim() ||
+      !buyerPhone.trim()
+    ) {
+      alert("Please enter buyer first name, last name, email, and phone number.");
       return;
     }
 
@@ -43,32 +124,51 @@ export default function NonMemberEventBookingPage() {
       return;
     }
 
+    if (!validateAttendees()) {
+      return;
+    }
+
     const bookingData = {
       event_id: eventId,
       booking_type: "non_member",
-      buyer_name: buyerName,
-      buyer_email: buyerEmail,
-      buyer_phone: buyerPhone,
+
+      buyer_first_name: buyerFirstName.trim(),
+      buyer_last_name: buyerLastName.trim(),
+      buyer_name: `${buyerFirstName.trim()} ${buyerLastName.trim()}`,
+      buyer_email: buyerEmail.trim(),
+      buyer_phone: buyerPhone.trim(),
+
       adult_qty: adultQty,
       child_qty: childQty,
       student_qty: studentQty,
       senior_qty: seniorQty,
+
+      no_onion_no_garlic_qty: noOnionNoGarlicQty,
+
       adult_price: prices.adult,
       child_price: prices.child,
       student_price: prices.student,
       senior_price: prices.senior,
+
+      attendees,
+      selected_people: attendees,
+
       total_tickets: totalTickets,
       total_amount: totalAmount,
+      
     };
 
-    sessionStorage.setItem("eventBookingData", JSON.stringify(bookingData));
+    sessionStorage.setItem(
+      "eventBookingData",
+      JSON.stringify(bookingData)
+    );
 
     navigate(`/events/${eventId}/payment`);
   };
 
   return (
     <section className="min-h-screen bg-[#fdf6ef] px-6 py-10">
-      <div className="mx-auto max-w-[850px]">
+      <div className="mx-auto max-w-[900px]">
         <button
           onClick={() => navigate(`/events/${eventId}/booking`)}
           className="mb-6 text-sm font-semibold text-[#d4503e]"
@@ -85,11 +185,21 @@ export default function NonMemberEventBookingPage() {
             Picnic Tickets
           </h1>
 
-          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <p className="mt-2 text-sm text-gray-600">
+            Please enter buyer details and attendee names for individual ticket generation.
+          </p>
+
+          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
             <InputField
-              label="Full Name"
-              value={buyerName}
-              onChange={setBuyerName}
+              label="Buyer First Name"
+              value={buyerFirstName}
+              onChange={setBuyerFirstName}
+            />
+
+            <InputField
+              label="Buyer Last Name"
+              value={buyerLastName}
+              onChange={setBuyerLastName}
             />
 
             <InputField
@@ -111,34 +221,50 @@ export default function NonMemberEventBookingPage() {
               title="Adult"
               price={prices.adult}
               value={adultQty}
-              onMinus={() => setAdultQty((prev) => Math.max(0, prev - 1))}
-              onPlus={() => setAdultQty((prev) => prev + 1)}
+              onMinus={() => updateQty("adult", adultQty - 1)}
+              onPlus={() => updateQty("adult", adultQty + 1)}
             />
 
             <TicketCounter
-              title="Child"
+              title="Child Under 10"
               price={prices.child}
               value={childQty}
-              onMinus={() => setChildQty((prev) => Math.max(0, prev - 1))}
-              onPlus={() => setChildQty((prev) => prev + 1)}
+              onMinus={() => updateQty("child", childQty - 1)}
+              onPlus={() => updateQty("child", childQty + 1)}
             />
 
             <TicketCounter
               title="Student"
               price={prices.student}
               value={studentQty}
-              onMinus={() => setStudentQty((prev) => Math.max(0, prev - 1))}
-              onPlus={() => setStudentQty((prev) => prev + 1)}
+              onMinus={() => updateQty("student", studentQty - 1)}
+              onPlus={() => updateQty("student", studentQty + 1)}
             />
 
             <TicketCounter
               title="Senior"
               price={prices.senior}
               value={seniorQty}
-              onMinus={() => setSeniorQty((prev) => Math.max(0, prev - 1))}
-              onPlus={() => setSeniorQty((prev) => prev + 1)}
+              onMinus={() => updateQty("senior", seniorQty - 1)}
+              onPlus={() => updateQty("senior", seniorQty + 1)}
             />
           </div>
+
+          {totalTickets > 0 && (
+            <AttendeeSection
+              attendees={attendees}
+              updateAttendee={updateAttendee}
+            />
+          )}
+
+          <FoodPreferenceCounter
+            value={noOnionNoGarlicQty}
+            max={totalTickets}
+            onMinus={() => setNoOnionNoGarlicQty((prev) => Math.max(0, prev - 1))}
+            onPlus={() =>
+              setNoOnionNoGarlicQty((prev) => Math.min(totalTickets, prev + 1))
+            }
+          />
 
           <BookingSummary totalTickets={totalTickets} totalAmount={totalAmount} />
 
@@ -154,11 +280,11 @@ export default function NonMemberEventBookingPage() {
   );
 }
 
-function InputField({ label, value, onChange, type = "text" }) {
+function InputField({ label, value, onChange, type = "text", required = true }) {
   return (
     <label className="block">
       <span className="mb-2 block text-sm font-semibold text-gray-700">
-        {label}
+        {label} {required && <span className="text-[#d4503e]">*</span>}
       </span>
 
       <input
@@ -181,6 +307,7 @@ function TicketCounter({ title, price, value, onMinus, onPlus }) {
 
       <div className="flex items-center gap-3">
         <button
+          type="button"
           onClick={onMinus}
           className="h-9 w-9 rounded-full bg-gray-100 text-xl font-bold text-gray-700"
         >
@@ -190,11 +317,150 @@ function TicketCounter({ title, price, value, onMinus, onPlus }) {
         <span className="w-8 text-center font-bold">{value}</span>
 
         <button
+          type="button"
           onClick={onPlus}
           className="h-9 w-9 rounded-full bg-[#d4503e] text-xl font-bold text-white"
         >
           +
         </button>
+      </div>
+    </div>
+  );
+}
+
+function AttendeeSection({ attendees, updateAttendee }) {
+  return (
+    <div className="mt-8 rounded-2xl border border-orange-100 bg-orange-50/40 p-5">
+      <h2 className="text-xl font-bold text-gray-900">Attendee Details</h2>
+      <p className="mt-1 text-sm text-gray-600">
+        Each attendee will receive an individual ticket.
+      </p>
+
+      <AttendeeGroup
+        type="adult"
+        title="Adult"
+        attendees={attendees.adult}
+        updateAttendee={updateAttendee}
+      />
+
+      <AttendeeGroup
+        type="child"
+        title="Child Under 10"
+        attendees={attendees.child}
+        updateAttendee={updateAttendee}
+        childNote="Last name is optional for children."
+      />
+
+      <AttendeeGroup
+        type="student"
+        title="Student"
+        attendees={attendees.student}
+        updateAttendee={updateAttendee}
+      />
+
+      <AttendeeGroup
+        type="senior"
+        title="Senior"
+        attendees={attendees.senior}
+        updateAttendee={updateAttendee}
+      />
+    </div>
+  );
+}
+
+function FoodPreferenceCounter({ value, max, onMinus, onPlus }) {
+  return (
+    <div className="mt-6 rounded-2xl border border-orange-200 bg-orange-50 p-5">
+      <h3 className="font-bold text-gray-900">
+        Food Preference
+      </h3>
+
+      <p className="mt-1 text-sm text-gray-600">
+        How many people need No Onion / No Garlic food?
+      </p>
+
+      <div className="mt-4 flex items-center justify-between">
+        <span className="text-sm font-semibold text-gray-700">
+          No Onion / No Garlic
+        </span>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onMinus}
+            disabled={value <= 0}
+            className="h-9 w-9 rounded-full bg-gray-100 text-xl font-bold text-gray-700 disabled:opacity-40"
+          >
+            -
+          </button>
+
+          <span className="w-8 text-center font-bold">{value}</span>
+
+          <button
+            type="button"
+            onClick={onPlus}
+            disabled={value >= max || max === 0}
+            className="h-9 w-9 rounded-full bg-[#d4503e] text-xl font-bold text-white disabled:bg-gray-300"
+          >
+            +
+          </button>
+        </div>
+      </div>
+
+      <p className="mt-2 text-xs text-gray-500">
+        Maximum allowed: {max}
+      </p>
+    </div>
+  );
+}
+
+function AttendeeGroup({
+  type,
+  title,
+  attendees,
+  updateAttendee,
+  childNote = "",
+}) {
+  if (!attendees.length) return null;
+
+  return (
+    <div className="mt-6">
+      <h3 className="mb-3 font-bold text-[#d4503e]">{title} Attendees</h3>
+
+      <div className="grid gap-4">
+        {attendees.map((person, index) => (
+          <div
+            key={`${type}-${index}`}
+            className="rounded-2xl bg-white p-4 shadow-sm"
+          >
+            <p className="mb-3 text-sm font-bold text-gray-800">
+              {title} {index + 1}
+            </p>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <InputField
+                label="First Name"
+                value={person.first_name}
+                onChange={(value) =>
+                  updateAttendee(type, index, "first_name", value)
+                }
+              />
+
+              <InputField
+                label="Last Name"
+                value={person.last_name}
+                required={type !== "child"}
+                onChange={(value) =>
+                  updateAttendee(type, index, "last_name", value)
+                }
+              />
+            </div>
+
+            {childNote && (
+              <p className="mt-2 text-xs text-gray-500">{childNote}</p>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -214,4 +480,15 @@ function BookingSummary({ totalTickets, totalAmount }) {
       </div>
     </div>
   );
+}
+
+function formatTicketTitle(type) {
+  const labels = {
+    adult: "Adult",
+    child: "Child Under 10",
+    student: "Student",
+    senior: "Senior",
+  };
+
+  return labels[type] || type;
 }

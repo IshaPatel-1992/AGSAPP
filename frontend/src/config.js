@@ -1,5 +1,3 @@
-
-
 export const API_BASE_URL =
   window.location.hostname === "localhost"
     ? "http://localhost/ags-api/api/"

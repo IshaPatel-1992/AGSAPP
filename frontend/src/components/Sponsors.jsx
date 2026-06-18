@@ -1,13 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../api";
 
-// UI colors for each sponsor type
 const typeStyles = {
   Diamond: { color: "#22d3ee", border: "border-cyan-400 shadow-cyan-300" },
   Platinum: { color: "#b9c3cf", border: "border-slate-300 shadow-slate-200" },
   Gold: { color: "#d4af37", border: "border-yellow-400 shadow-yellow-200" },
   Silver: { color: "#c0c0c0", border: "border-gray-300 shadow-gray-200" },
   Bronze: { color: "#b87333", border: "border-orange-500 shadow-orange-300" },
+  "Media Partner": {
+    color: "#2563eb",
+    border: "border-blue-400 shadow-blue-200",
+  },
+  Event: { color: "#7c3aed", border: "border-purple-400 shadow-purple-200" },
+  Supporter: { color: "#16a34a", border: "border-green-400 shadow-green-200" },
 };
 
 const priorityOrder = [
@@ -16,12 +21,14 @@ const priorityOrder = [
   "Gold",
   "Silver",
   "Bronze",
+  "Media Partner",
   "Event",
-  "Supporter"
+  "Supporter",
 ];
 
 const normalizeType = (type) => {
   if (!type) return "";
+
   const value = type.toString().trim().toLowerCase();
 
   const map = {
@@ -30,6 +37,9 @@ const normalizeType = (type) => {
     gold: "Gold",
     silver: "Silver",
     bronze: "Bronze",
+    "media partner": "Media Partner",
+    event: "Event",
+    supporter: "Supporter",
   };
 
   return map[value] || "";
@@ -41,20 +51,23 @@ const SponsorGroup = ({ groupName, sponsors, onSponsorClick }) => {
     border: "border-gray-200 shadow-gray-100",
   };
 
-  const gridClasses =
-    groupName === "Platinum"
-      ? "grid sm:grid-cols-2 md:grid-cols-2 gap-8"
-      : "grid sm:grid-cols-2 md:grid-cols-3 gap-8";
+  const isMediaPartner = groupName === "Media Partner";
+
+  const gridClasses = isMediaPartner
+    ? "grid grid-cols-1 gap-8"
+    : groupName === "Platinum"
+    ? "grid grid-cols-1 sm:grid-cols-2 gap-8"
+    : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8";
 
   return (
     <div className="mb-16">
       <h3 className="text-2xl sm:text-3xl font-bold text-center mb-10">
         <span
-          className="px-4 py-1 rounded-lg shadow"
+          className="px-4 py-1 rounded-lg shadow inline-block"
           style={{
-  background: `linear-gradient(135deg, ${style.color}, #ffffff22)`,
-  color: "#fff",
-}}
+            background: `linear-gradient(135deg, ${style.color}, #ffffff22)`,
+            color: "#fff",
+          }}
         >
           {groupName} Sponsors
         </span>
@@ -67,16 +80,32 @@ const SponsorGroup = ({ groupName, sponsors, onSponsorClick }) => {
             onClick={() => onSponsorClick(sponsor)}
             className={`relative overflow-hidden rounded-2xl bg-white group cursor-pointer hover:shadow-xl transition duration-300 border-4 ${style.border}`}
           >
-            <div className="flex justify-center items-center h-48 bg-white p-4">
+            <div
+              className={`flex justify-center items-center bg-white p-5 ${
+                isMediaPartner
+                  ? "h-56 sm:h-64 md:h-72 lg:h-80"
+                  : "h-48"
+              }`}
+            >
               <img
                 src={sponsor.logoUrl}
                 alt={sponsor.name}
-                className="max-h-40 object-contain transition-transform duration-300 group-hover:scale-105"
+                className={`object-contain transition-transform duration-300 group-hover:scale-105 ${
+                  isMediaPartner
+                    ? "max-h-44 sm:max-h-52 md:max-h-60 lg:max-h-72 max-w-full"
+                    : "max-h-40 max-w-full"
+                }`}
               />
             </div>
 
             <div className="p-4">
-              <p className="text-sm sm:text-base font-semibold text-brand tracking-wide text-center">
+              <p
+                className={`font-semibold text-brand tracking-wide text-center ${
+                  isMediaPartner
+                    ? "text-base sm:text-lg"
+                    : "text-sm sm:text-base"
+                }`}
+              >
                 {sponsor.name}
               </p>
             </div>
@@ -95,7 +124,7 @@ export default function SponsorsSection() {
   useEffect(() => {
     const fetchSponsors = async () => {
       try {
-        const result = await api.get("/getSponsors.php");
+        const result = await api.get("getSponsors.php");
 
         let data = [];
 
@@ -125,11 +154,14 @@ export default function SponsorsSection() {
     if (!acc[sponsor.type]) {
       acc[sponsor.type] = [];
     }
+
     acc[sponsor.type].push(sponsor);
     return acc;
   }, {});
 
-  const sortedTypes = priorityOrder.filter((type) => groupedSponsors[type]?.length);
+  const sortedTypes = priorityOrder.filter(
+    (type) => groupedSponsors[type]?.length
+  );
 
   if (loading) {
     return <p className="text-center mt-20">Loading Sponsors...</p>;
@@ -138,7 +170,7 @@ export default function SponsorsSection() {
   return (
     <section id="sponsors" className="py-20 bg-brand-cream min-h-screen">
       <div className="max-w-6xl mx-auto px-4">
-        <h2 className="text-4xl font-extrabold text-center text-brand mb-16 tracking-tight">
+        <h2 className="text-3xl sm:text-4xl font-extrabold text-center text-brand mb-16 tracking-tight">
           Our Valued Sponsors
         </h2>
 
