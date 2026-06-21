@@ -85,13 +85,7 @@ export default function EventsPage() {
   }
 
   const handleBookNow = (eventId) => {
-    const savedMember = localStorage.getItem("member");
-
-    if (savedMember) {
-      navigate(`/events/${eventId}/booking`);
-    } else {
-      navigate(`/events/${eventId}/booking`);
-    }
+    navigate(`/events/${eventId}/booking`);
   };
   return (
     <section className="min-h-screen bg-[#fdf6ef] px-6 py-10">
@@ -138,9 +132,7 @@ export default function EventsPage() {
                     ? formatDate(eventDate)
                     : "Date Coming Soon July-August";
 
-              const isRegistrationOpen = Number(event.registration_open) === 1;
-
-              const registrationLink = event.registration_link || "";
+              
 
               const isPicnicEvent = eventTitle
                 .toLowerCase()
@@ -232,7 +224,7 @@ export default function EventsPage() {
                     {isPicnicEvent && (
                       <div className="mt-5">
                         <button
-                          onClick={() => handleBookNow(eventKey)}
+                          onClick={() => handleBookNow(event.id)}
                           className="rounded-lg bg-[#d4503e] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#bb4332]"
                         >
                           Book Now

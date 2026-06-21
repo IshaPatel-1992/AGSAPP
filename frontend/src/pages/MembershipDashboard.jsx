@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FaCalendarAlt,
-  FaCreditCard,
   FaFileAlt,
   FaHome,
   FaPlusCircle,
@@ -26,6 +25,9 @@ export default function MembershipDashboard() {
   const [membershipOptions, setMembershipOptions] = useState([]);
   const [loadingTypes, setLoadingTypes] = useState(true);
   const [typesError, setTypesError] = useState("");
+
+  const [pendingBookings, setPendingBookings] = useState([]);
+  const [loadingPending, setLoadingPending] = useState(false);
 
   useEffect(() => {
     const loadMember = () => {
@@ -55,6 +57,34 @@ export default function MembershipDashboard() {
       window.removeEventListener("authChanged", loadMember);
     };
   }, [navigate]);
+
+  useEffect(() => {
+    const loadPendingBookings = async () => {
+      if (!member?.id && !member?.email) return;
+
+      try {
+        setLoadingPending(true);
+
+        const result = await api.post("getPendingEventBookings.php", {
+          member_id: member?.id,
+          email: member?.email,
+        });
+
+        if (result?.success) {
+          setPendingBookings(result.data || []);
+        } else {
+          setPendingBookings([]);
+        }
+      } catch (error) {
+        console.error("Pending bookings error:", error);
+        setPendingBookings([]);
+      } finally {
+        setLoadingPending(false);
+      }
+    };
+
+    loadPendingBookings();
+  }, [member]);
 
   useEffect(() => {
     const loadMembershipTypes = async () => {
@@ -87,6 +117,75 @@ export default function MembershipDashboard() {
         membershipType: membership.name,
       },
     });
+  };
+
+  const handleResumePayment = (booking) => {
+    let selectedPeople = {};
+
+    try {
+      selectedPeople = booking.selected_people_json
+        ? JSON.parse(booking.selected_people_json)
+        : {};
+    } catch {
+      selectedPeople = {};
+    }
+
+    const bookingData = {
+      event_id: booking.event_id,
+      booking_type: booking.booking_type,
+      membership_application_id: booking.membership_application_id,
+      member_id: booking.member_id,
+
+      buyer_name: booking.buyer_name,
+      buyer_email: booking.buyer_email,
+      buyer_phone: booking.buyer_phone,
+
+      adult_qty: booking.adult_qty,
+      child_qty: booking.child_qty,
+      student_qty: booking.student_qty,
+      senior_qty: booking.senior_qty,
+
+      adult_price: booking.adult_price,
+      child_price: booking.child_price,
+      student_price: booking.student_price,
+      senior_price: booking.senior_price,
+
+      total_tickets: booking.total_tickets,
+      total_amount: booking.subtotal_amount || booking.total_amount,
+
+      selected_people: selectedPeople,
+    };
+
+    sessionStorage.setItem("eventBookingData", JSON.stringify(bookingData));
+
+    navigate(`/events/${booking.event_id}/payment`);
+  };
+
+  const handleDeletePendingBooking = async (booking) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this pending booking?"
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const result = await api.post("deletePendingEventBooking.php", {
+        booking_id: booking.id,
+        member_id: member?.id,
+        email: member?.email,
+      });
+
+      if (result?.success) {
+        setPendingBookings((prev) =>
+          prev.filter((item) => item.id !== booking.id)
+        );
+      } else {
+        alert(result?.message || "Unable to delete booking.");
+      }
+    } catch (error) {
+      console.error("Delete pending booking error:", error);
+      alert("Something went wrong while deleting booking.");
+    }
   };
 
   const handleLogout = async () => {
@@ -137,7 +236,9 @@ export default function MembershipDashboard() {
         <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
           <aside className="rounded-3xl bg-white p-4 shadow-md">
             <div className="mb-4 rounded-2xl bg-[#fdf6ef] p-4">
-              <p className="text-sm font-semibold text-gray-500">Signed in as</p>
+              <p className="text-sm font-semibold text-gray-500">
+                Signed in as
+              </p>
               <p className="mt-1 font-bold text-gray-900">
                 {member?.full_name || "AGS Member"}
               </p>
@@ -188,8 +289,19 @@ export default function MembershipDashboard() {
             {activeTab === "overview" && (
               <DashboardPanel
                 title="Dashboard Overview"
-                subtitle="Quick access to your most important AGS member services."
+                subtitle="Please complete or delete pending event payments before starting a new booking."
               >
+                <PendingEventPayments
+                  bookings={pendingBookings}
+                  loading={loadingPending}
+                  onResume={handleResumePayment}
+                  onDelete={handleDeletePendingBooking}
+                />
+
+                <h3 className="mb-4 mt-8 text-lg font-extrabold text-gray-900">
+                  Quick Actions
+                </h3>
+
                 <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
                   <QuickCard
                     icon={<FaUserFriends />}
@@ -413,6 +525,112 @@ function MembershipTypeCard({ item, onClick }) {
         >
           Add
         </button>
+      </div>
+    </div>
+  );
+}
+
+function PendingEventPayments({ bookings, loading, onResume, onDelete }) {
+  if (loading) {
+    return (
+      <div className="rounded-3xl border border-orange-200 bg-orange-50 p-5">
+        <p className="font-bold text-orange-700">
+          Checking pending event payments...
+        </p>
+      </div>
+    );
+  }
+
+  if (!bookings.length) {
+    return (
+      <div className="rounded-3xl border border-green-200 bg-green-50 p-5">
+        <h3 className="text-lg font-extrabold text-green-800">
+          No Pending Event Payments
+        </h3>
+        <p className="mt-1 text-sm text-green-700">
+          You do not have any unfinished event bookings right now.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-3xl border-2 border-orange-300 bg-[#fff7ed] p-5 shadow-sm">
+      <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h3 className="text-xl font-extrabold text-orange-900">
+            Action Required: Pending Event Payment
+          </h3>
+          <p className="mt-1 text-sm text-orange-700">
+            Please resume payment or delete the booking if you do not want to
+            continue.
+          </p>
+        </div>
+
+        <span className="w-fit rounded-full bg-orange-600 px-4 py-2 text-sm font-bold text-white">
+          {bookings.length} Pending
+        </span>
+      </div>
+
+      <div className="space-y-3">
+        {bookings.map((booking) => (
+          <div
+            key={booking.id}
+            className="rounded-2xl border border-orange-200 bg-white p-4 shadow-sm"
+          >
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-lg font-extrabold text-gray-900">
+                  {booking.event_title || "AGS Event"}
+                </p>
+
+                <div className="mt-2 grid gap-1 text-sm text-gray-600 sm:grid-cols-2">
+                  <p>
+                    <span className="font-bold">Booking #:</span>{" "}
+                    {booking.booking_number}
+                  </p>
+
+                  <p>
+                    <span className="font-bold">Amount:</span>{" "}
+                    ${Number(booking.total_amount || 0).toFixed(2)}
+                  </p>
+
+                  {booking.event_date && (
+                    <p>
+                      <span className="font-bold">Date:</span>{" "}
+                      {booking.event_date}
+                    </p>
+                  )}
+
+                  {booking.location && (
+                    <p>
+                      <span className="font-bold">Location:</span>{" "}
+                      {booking.location}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 sm:flex-row lg:min-w-[300px]">
+                <button
+                  type="button"
+                  onClick={() => onResume(booking)}
+                  className="flex-1 rounded-xl bg-[#d4503e] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#bb4332]"
+                >
+                  Resume Payment
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onDelete(booking)}
+                  className="flex-1 rounded-xl border border-red-300 bg-white px-5 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

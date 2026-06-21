@@ -19,6 +19,7 @@ export default function EventPaymentPage() {
   const [paymentInfo, setPaymentInfo] = useState(null);
   const [loadingPayment, setLoadingPayment] = useState(false);
   const [error, setError] = useState("");
+  const [adminHelp, setAdminHelp] = useState(false);
 
   useEffect(() => {
     const savedBooking = sessionStorage.getItem("eventBookingData");
@@ -39,6 +40,7 @@ export default function EventPaymentPage() {
     try {
       setLoadingPayment(true);
       setError("");
+      setAdminHelp(false);
 
       const savedMember = localStorage.getItem("member");
       const parsedMember = savedMember ? JSON.parse(savedMember) : null;
@@ -50,6 +52,39 @@ export default function EventPaymentPage() {
 
       if (!result?.success) {
         setError(result?.message || "Unable to start payment.");
+        setAdminHelp(Boolean(result?.requires_admin));
+        return;
+      }
+
+      if (result.payment_already_completed) {
+        const confirmResult = await api.post("confirmEventPayment.php", {
+          booking_id: result.booking_id,
+          payment_intent_id: result.paymentIntentId || result.payment_intent_id,
+        });
+
+        if (!confirmResult?.success) {
+          setError(confirmResult?.message || "Payment completed, but booking confirmation failed. Please contact administrator.");
+          setAdminHelp(true);
+          return;
+        }
+
+        sessionStorage.removeItem("eventBookingData");
+
+        const successData = {
+          booking_id: confirmResult.booking_id || result.booking_id,
+          booking_number: confirmResult.booking_number || result.booking_number,
+          tickets_created: confirmResult.tickets_created || bookingData?.total_tickets || 0,
+          buyer_name: confirmResult.buyer_name || bookingData?.buyer_name || "",
+          buyer_email: confirmResult.buyer_email || bookingData?.buyer_email || "",
+          payment_type: "paid",
+        };
+
+        sessionStorage.setItem("eventPaymentSuccess", JSON.stringify(successData));
+
+        navigate(`/events/payment-success`, {
+          state: successData,
+        });
+
         return;
       }
 
@@ -66,11 +101,13 @@ export default function EventPaymentPage() {
     try {
       setLoadingPayment(true);
       setError("");
+      setAdminHelp(false);
 
       const result = await api.post("createFreeEventBooking.php", bookingData);
 
       if (!result?.success) {
         setError(result?.message || "Unable to create free booking.");
+        setAdminHelp(Boolean(result?.requires_admin));
         return;
       }
 
@@ -130,6 +167,21 @@ export default function EventPaymentPage() {
           {error && (
             <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
               {error}
+
+              {adminHelp && (
+                <button
+                  onClick={() => navigate("/contact")}
+                  className="mt-4 block rounded-lg bg-red-600 px-4 py-2 text-white"
+                >
+                  Contact Administrator
+                </button>
+              )}
+            </div>
+          )}
+
+          {paymentInfo?.resumed_payment && (
+            <div className="mt-5 rounded-xl border border-orange-200 bg-orange-50 p-4 text-sm font-semibold text-orange-800">
+              You already had a pending booking. We found your payment session, so you can continue payment below.
             </div>
           )}
 
@@ -161,29 +213,10 @@ export default function EventPaymentPage() {
           </div>
 
           <div className="mt-8 space-y-3">
-            <SummaryRow
-              label="Adult Tickets"
-              qty={bookingData.adult_qty}
-              price={bookingData.adult_price}
-            />
-
-            <SummaryRow
-              label="Kid Under 10 Tickets"
-              qty={bookingData.child_qty}
-              price={bookingData.child_price}
-            />
-
-            <SummaryRow
-              label="Student Tickets"
-              qty={bookingData.student_qty}
-              price={bookingData.student_price}
-            />
-
-            <SummaryRow
-              label="Senior Tickets"
-              qty={bookingData.senior_qty}
-              price={bookingData.senior_price}
-            />
+            <SummaryRow label="Adult Tickets" qty={bookingData.adult_qty} price={bookingData.adult_price} />
+            <SummaryRow label="Kid Under 10 Tickets" qty={bookingData.child_qty} price={bookingData.child_price} />
+            <SummaryRow label="Student Tickets" qty={bookingData.student_qty} price={bookingData.student_price} />
+            <SummaryRow label="Senior Tickets" qty={bookingData.senior_qty} price={bookingData.senior_price} />
           </div>
 
           <SelectedPeople selectedPeople={bookingData.selected_people} />
@@ -232,13 +265,13 @@ export default function EventPaymentPage() {
             <Elements
               stripe={stripePromise}
               options={{
-                clientSecret: paymentInfo.clientSecret,
+                clientSecret: paymentInfo.clientSecret || paymentInfo.client_secret,
               }}
             >
               <EventCheckoutForm
                 bookingId={paymentInfo.booking_id}
                 bookingNumber={paymentInfo.booking_number}
-                paymentIntentId={paymentInfo.paymentIntentId}
+                paymentIntentId={paymentInfo.paymentIntentId || paymentInfo.payment_intent_id}
                 bookingData={bookingData}
               />
             </Elements>
@@ -256,6 +289,7 @@ function EventCheckoutForm({ bookingId, bookingNumber, paymentIntentId, bookingD
 
   const [paying, setPaying] = useState(false);
   const [paymentError, setPaymentError] = useState("");
+  const [adminHelp, setAdminHelp] = useState(false);
 
   const handlePay = async (e) => {
     e.preventDefault();
@@ -264,6 +298,7 @@ function EventCheckoutForm({ bookingId, bookingNumber, paymentIntentId, bookingD
 
     setPaying(true);
     setPaymentError("");
+    setAdminHelp(false);
 
     const result = await stripe.confirmPayment({
       elements,
@@ -279,30 +314,25 @@ function EventCheckoutForm({ bookingId, bookingNumber, paymentIntentId, bookingD
     try {
       const confirmResult = await api.post("confirmEventPayment.php", {
         booking_id: bookingId,
-        payment_intent_id:
-          result.paymentIntent?.id || paymentIntentId,
+        payment_intent_id: result.paymentIntent?.id || paymentIntentId,
       });
 
-      console.log(confirmResult);
+      if (!confirmResult?.success) {
+        setPaymentError(confirmResult?.message || "Payment completed but server confirmation failed.");
+        setAdminHelp(true);
+        setPaying(false);
+        return;
+      }
 
       sessionStorage.removeItem("eventBookingData");
 
       const successData = {
         booking_id: bookingId,
         booking_number: bookingNumber,
-        tickets_created:
-          confirmResult?.tickets_created ||
-          bookingData?.total_tickets ||
-          0,
-        buyer_name:
-          confirmResult?.buyer_name ||
-          bookingData?.buyer_name ||
-          "",
-        buyer_email:
-          confirmResult?.buyer_email ||
-          bookingData?.buyer_email ||
-          "",
-          payment_type: "paid",
+        tickets_created: confirmResult?.tickets_created || bookingData?.total_tickets || 0,
+        buyer_name: confirmResult?.buyer_name || bookingData?.buyer_name || "",
+        buyer_email: confirmResult?.buyer_email || bookingData?.buyer_email || "",
+        payment_type: "paid",
       };
 
       sessionStorage.setItem("eventPaymentSuccess", JSON.stringify(successData));
@@ -313,6 +343,7 @@ function EventCheckoutForm({ bookingId, bookingNumber, paymentIntentId, bookingD
     } catch (err) {
       console.error("Confirm event payment error:", err);
       setPaymentError("Payment completed but server confirmation failed.");
+      setAdminHelp(true);
       setPaying(false);
     }
   };
@@ -322,6 +353,16 @@ function EventCheckoutForm({ bookingId, bookingNumber, paymentIntentId, bookingD
       {paymentError && (
         <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
           {paymentError}
+
+          {adminHelp && (
+            <button
+              type="button"
+              onClick={() => navigate("/contact")}
+              className="mt-4 block rounded-lg bg-red-600 px-4 py-2 text-white"
+            >
+              Contact Administrator
+            </button>
+          )}
         </div>
       )}
 
