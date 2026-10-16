@@ -6,6 +6,7 @@ import { api } from "../api";
 import PaymentCheckoutForm from "../components/PaymentCheckoutForm";
 import PaymentTermsNotice from "../components/PaymentTermsNotice";
 
+//const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY_TEST);
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
 
 export default function PaymentPage() {

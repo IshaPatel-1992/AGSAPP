@@ -1,6 +1,6 @@
 export const API_BASE_URL =
   window.location.hostname === "localhost"
-    ? "http://localhost/ags-api/api/"
+    ? "https://airdriegujaratisamaj.ca/api/"
     : "https://airdriegujaratisamaj.ca/api/";
 
 export async function apiGet(path) {

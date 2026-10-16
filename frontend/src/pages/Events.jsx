@@ -1,73 +1,84 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 
 export default function EventsPage() {
-  const navigate = useNavigate();
-
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const parseLocalDate = (dateString) => {
+    if (!dateString || dateString === "0000-00-00") return null;
+
+    const [year, month, day] = dateString.split("-").map(Number);
+    if (!year || !month || !day) return null;
+
+    return new Date(year, month - 1, day);
+  };
 
   const filterUpcomingEvents = (eventsList) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     return eventsList.filter((event) => {
-      const eventDate = event.event_date || event.date;
+      // For a multi-day event, use its last day.
+      const lastDate =
+        parseLocalDate(event.event_end_date) ||
+        parseLocalDate(event.event_date || event.date);
 
-      if (!eventDate || eventDate === "0000-00-00") return true;
-
-      const [year, month, day] = eventDate.split("-").map(Number);
-      const eventLocalDate = new Date(year, month - 1, day);
-
-      return eventLocalDate >= today;
+      return !lastDate || lastDate >= today;
     });
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString || dateString === "0000-00-00") return "";
+  const formatEventDate = (startString, endString) => {
+    const start = parseLocalDate(startString);
+    const end = parseLocalDate(endString);
 
-    const [year, month, day] = dateString.split("-").map(Number);
+    if (!start) return "Date coming soon";
 
-    const monthNames = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
-    ];
+    const monthName = (date) =>
+      date.toLocaleString("en-CA", { month: "long" });
 
-    return `${day} ${monthNames[month - 1]} ${year}`;
+    if (end && startString !== endString) {
+      if (
+        start.getFullYear() === end.getFullYear() &&
+        start.getMonth() === end.getMonth()
+      ) {
+        return `${monthName(start)} ${start.getDate()} & ${end.getDate()}, ${start.getFullYear()}`;
+      }
+
+      return `${monthName(start)} ${start.getDate()}, ${start.getFullYear()} – ${monthName(end)} ${end.getDate()}, ${end.getFullYear()}`;
+    }
+
+    return `${monthName(start)} ${start.getDate()}, ${start.getFullYear()}`;
   };
 
   useEffect(() => {
     const fetchEvents = async () => {
       try {
+        setLoading(true);
+        setError("");
+
         const result = await api.get("/getEvents.php");
 
-        if (result?.success) {
-          const visibleEvents = (result.data || []).filter(
-            (event) => Number(event.registration_open) !== -1
-          );
+        let eventsList;
 
-          setEvents(filterUpcomingEvents(visibleEvents));
+        if (result?.success && Array.isArray(result.data)) {
+          eventsList = result.data;
         } else if (Array.isArray(result)) {
-          const visibleEvents = result.filter(
-            (event) => Number(event.registration_open) !== -1
-          );
-
-          setEvents(filterUpcomingEvents(visibleEvents));
+          eventsList = result;
+        } else {
+          throw new Error("Invalid events response");
         }
+
+        // registration_open = -1 means hide the event completely.
+        const visibleEvents = eventsList.filter(
+          (event) => Number(event.registration_open) !== -1
+        );
+
+        setEvents(filterUpcomingEvents(visibleEvents));
       } catch (err) {
-        setError("Could not connect to backend");
+        console.error("Failed to load events:", err);
+        setError("Could not connect to the events service.");
       } finally {
         setLoading(false);
       }
@@ -77,40 +88,46 @@ export default function EventsPage() {
   }, []);
 
   if (loading) {
-    return <p className="px-6 py-10 text-center">Loading Events...</p>;
+    return (
+      <section className="min-h-screen bg-[#fdf6ef] px-4 py-10">
+        <p className="text-center text-gray-600">Loading events...</p>
+      </section>
+    );
   }
 
   if (error) {
-    return <p className="px-6 py-10 text-center text-red-600">{error}</p>;
+    return (
+      <section className="min-h-screen bg-[#fdf6ef] px-4 py-10">
+        <div className="mx-auto max-w-xl rounded-2xl bg-white p-8 text-center shadow-md">
+          <p className="font-semibold text-red-600">{error}</p>
+          <p className="mt-2 text-sm text-gray-600">
+            Please try again later.
+          </p>
+        </div>
+      </section>
+    );
   }
 
-  const handleBookNow = (eventId) => {
-    navigate(`/events/${eventId}/booking`);
-  };
   return (
-    <section className="min-h-screen bg-[#fdf6ef] px-6 py-10">
-      <div className="mx-auto max-w-[1000px]">
+    <section className="min-h-screen bg-[#fdf6ef] px-4 py-10 sm:px-6">
+      <div className="mx-auto max-w-5xl">
         <h1 className="mb-8 text-center text-3xl font-bold text-[#d4503e] md:text-4xl">
-          Events
+          Upcoming Events
         </h1>
 
         {events.length === 0 ? (
-          <div className="rounded-2xl bg-white p-8 text-center shadow-[0_2px_10px_rgba(0,0,0,0.08)]">
-            No upcoming events found.
+          <div className="rounded-2xl bg-white p-8 text-center shadow-md">
+            <p className="text-gray-600">No upcoming events found.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+          <div className="mx-auto grid max-w-3xl grid-cols-1 gap-6">
             {events.map((event, index) => {
               const eventKey = event.id || event._id || index;
-
               const imageUrl =
                 event.image_url || event.image?.url || event.image || "";
-
               const eventTitle = event.title || "Untitled Event";
-
               const eventDescription =
-                event.description || "No description available.";
-
+                event.description || "More event details are coming soon.";
               const eventLocation = event.location || "To be announced";
 
               const eventDate =
@@ -121,118 +138,104 @@ export default function EventsPage() {
                     : "";
 
               const eventEndDate =
-                event.event_end_date && event.event_end_date !== "0000-00-00"
+                event.event_end_date &&
+                  event.event_end_date !== "0000-00-00"
                   ? event.event_end_date
                   : "";
 
-              const formattedEventDate =
-                eventDate && eventEndDate
-                  ? `${formatDate(eventDate)} - ${formatDate(eventEndDate)}`
-                  : eventDate
-                    ? formatDate(eventDate)
-                    : "Date Coming Soon July-August";
+              const formattedEventDate = formatEventDate(
+                eventDate,
+                eventEndDate
+              );
 
-              
+              const registrationLink =
+                typeof event.registration_link === "string"
+                  ? event.registration_link.trim()
+                  : "";
 
-              const isPicnicEvent = eventTitle
-                .toLowerCase()
-                .includes("picnic");
+              const registrationIsOpen =
+                Number(event.registration_open) === 1;
 
               return (
-                <div
+                <article
                   key={eventKey}
-                  className="rounded-2xl bg-white p-6 shadow-[0_2px_10px_rgba(0,0,0,0.08)]"
+                  className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-[0_2px_10px_rgba(0,0,0,0.08)] transition duration-300 hover:shadow-[0_8px_24px_rgba(0,0,0,0.12)]"
                 >
-                  <div className="relative">
-                    {imageUrl && (
+                  {/* Full banner, with no widget or crop */}
+                  <div className="bg-[#f7e8dc]">
+                    {imageUrl ? (
                       <img
                         src={imageUrl}
                         alt={eventTitle}
-                        className="mb-4 block h-[220px] w-full rounded-xl object-cover"
+                        className="block h-auto w-full"
                       />
-                    )}
-
-                    {eventDate ? (
-                      (() => {
-                        const [year, month, day] = eventDate
-                          .split("-")
-                          .map(Number);
-
-                        const monthNames = [
-                          "JAN",
-                          "FEB",
-                          "MAR",
-                          "APR",
-                          "MAY",
-                          "JUN",
-                          "JUL",
-                          "AUG",
-                          "SEP",
-                          "OCT",
-                          "NOV",
-                          "DEC",
-                        ];
-
-                        return (
-                          <div className="absolute left-4 top-4 rounded-2xl bg-white/95 px-4 py-2 text-center shadow-lg backdrop-blur-sm">
-                            <p className="text-xs font-bold text-orange-500">
-                              {monthNames[month - 1]}
-                            </p>
-
-                            <p className="text-xl font-extrabold leading-none text-gray-900">
-                              {day}
-                            </p>
-
-                            <p className="text-[11px] font-semibold text-gray-500">
-                              {year}
-                            </p>
-                          </div>
-                        );
-                      })()
                     ) : (
-                      <div className="absolute left-4 top-4 rounded-2xl bg-orange-500 px-4 py-2 text-center shadow-lg">
-                        <p className="text-xs font-bold text-white">COMING</p>
-
-                        <p className="text-sm font-extrabold leading-none text-white">
-                          SOON
-                        </p>
-
-                        <p className="text-sm font-extrabold leading-none text-white">
-                          JUL-AUG
+                      <div className="flex min-h-[200px] items-center justify-center p-6">
+                        <p className="font-semibold text-[#d4503e]">
+                          Event image coming soon
                         </p>
                       </div>
                     )}
                   </div>
 
-                  <h2 className="m-0 text-2xl font-bold text-[#d4503e]">
-                    {eventTitle}
-                  </h2>
+                  <div className="flex flex-1 flex-col p-5 sm:p-7">
+                    <h2 className="text-2xl font-bold text-[#d4503e] sm:text-3xl">
+                      {eventTitle}
+                    </h2>
 
-                  <p className="mt-2 text-sm text-[#666]">
-                    {formattedEventDate}
-                  </p>
+                    <p className="mt-2 text-base font-semibold text-gray-700">
+                      📅 {formattedEventDate}
+                    </p>
 
-                  <p className="mt-4 leading-7 text-[#444]">
-                    {eventDescription}
-                  </p>
+                    <p className="mt-4 flex-1 leading-7 text-gray-700">
+                      {eventDescription}
+                    </p>
 
-                  <p className="mt-4 text-sm text-[#666]">
-                    <strong>Location:</strong> {eventLocation}
-                  </p>
+                    <p className="mt-4 text-sm text-gray-600">
+                      <strong className="text-gray-800">Location:</strong>{" "}
+                      {eventLocation}
+                    </p>
 
-                  <div className="mt-5">
-                    {isPicnicEvent && (
-                      <div className="mt-5">
+                    <div className="mt-6">
+                      {registrationIsOpen && registrationLink ? (
+                        <>
+                          <a
+                            href={registrationLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex w-full items-center justify-center rounded-lg bg-[#d4503e] px-5 py-3 text-center text-sm font-semibold text-white transition hover:bg-[#bb4332] focus:outline-none focus:ring-2 focus:ring-[#d4503e] focus:ring-offset-2"
+                            aria-label={`Buy non-member tickets for ${eventTitle}`}
+                          >
+                            Buy Non-Member Tickets
+                          </a>
+
+                          <p className="mt-3 text-center text-xs leading-5 text-gray-500">
+                            Admission and dinner included. AGS members: enter your
+                            membership code to access member pricing. Children under
+                            10 are free but must be registered. Diwali + Christmas
+                            combo tickets are also available.
+                          </p>
+                        </>
+                      ) : registrationIsOpen ? (
                         <button
-                          onClick={() => handleBookNow(event.id)}
-                          className="rounded-lg bg-[#d4503e] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#bb4332]"
+                          type="button"
+                          disabled
+                          className="w-full cursor-not-allowed rounded-lg bg-gray-300 px-5 py-3 text-sm font-semibold text-gray-600"
                         >
-                          Book Now
+                          Ticket Link Coming Soon
                         </button>
-                      </div>
-                    )}
+                      ) : (
+                        <button
+                          type="button"
+                          disabled
+                          className="w-full cursor-not-allowed rounded-lg bg-gray-300 px-5 py-3 text-sm font-semibold text-gray-600"
+                        >
+                          Registration Closed
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
+                </article>
               );
             })}
           </div>

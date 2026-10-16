@@ -20,7 +20,7 @@ export default function Navbar() {
       name: "Events",
       items: [
         { name: "Upcoming Events", path: "/events" },
-        { name: "Non-Member Tickets", path: "/events/find-ticket" },
+        /* { name: "Non-Member Tickets", path: "/events/find-ticket" }, */
         { name: "Gallery", path: "/gallerypage" },
       ],
     },
