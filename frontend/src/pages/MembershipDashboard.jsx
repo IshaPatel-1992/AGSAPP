@@ -11,7 +11,6 @@ import {
 } from "react-icons/fa";
 
 import MyMemberships from "../components/MyMemberships";
-import MyEventTickets from "../components/MyEventTickets";
 import PaymentTermsNotice from "../components/PaymentTermsNotice";
 import { msalInstance } from "../auth/msalConfig";
 import { api } from "../api";
@@ -26,22 +25,28 @@ export default function MembershipDashboard() {
   const [loadingTypes, setLoadingTypes] = useState(true);
   const [typesError, setTypesError] = useState("");
 
-  const [pendingBookings, setPendingBookings] = useState([]);
-  const [loadingPending, setLoadingPending] = useState(false);
-
   useEffect(() => {
     const loadMember = () => {
       try {
         const savedMember = localStorage.getItem("member");
 
         if (!savedMember) {
+          setMember(null);
           navigate("/login");
           return;
         }
 
-        setMember(JSON.parse(savedMember));
+        const account = JSON.parse(savedMember);
+        if (!account || typeof account !== "object" || Array.isArray(account) ||
+            !Number.isInteger(Number(account.id)) || Number(account.id) <= 0) {
+          setMember(null);
+          navigate("/login", { replace: true });
+          return;
+        }
+        setMember(account);
       } catch (error) {
         console.error("Failed to parse member:", error);
+        setMember(null);
         localStorage.removeItem("member");
         navigate("/login");
       }
@@ -57,34 +62,6 @@ export default function MembershipDashboard() {
       window.removeEventListener("authChanged", loadMember);
     };
   }, [navigate]);
-
-  useEffect(() => {
-    const loadPendingBookings = async () => {
-      if (!member?.id && !member?.email) return;
-
-      try {
-        setLoadingPending(true);
-
-        const result = await api.post("getPendingEventBookings.php", {
-          member_id: member?.id,
-          email: member?.email,
-        });
-
-        if (result?.success) {
-          setPendingBookings(result.data || []);
-        } else {
-          setPendingBookings([]);
-        }
-      } catch (error) {
-        console.error("Pending bookings error:", error);
-        setPendingBookings([]);
-      } finally {
-        setLoadingPending(false);
-      }
-    };
-
-    loadPendingBookings();
-  }, [member]);
 
   useEffect(() => {
     const loadMembershipTypes = async () => {
@@ -119,75 +96,6 @@ export default function MembershipDashboard() {
     });
   };
 
-  const handleResumePayment = (booking) => {
-    let selectedPeople = {};
-
-    try {
-      selectedPeople = booking.selected_people_json
-        ? JSON.parse(booking.selected_people_json)
-        : {};
-    } catch {
-      selectedPeople = {};
-    }
-
-    const bookingData = {
-      event_id: booking.event_id,
-      booking_type: booking.booking_type,
-      membership_application_id: booking.membership_application_id,
-      member_id: booking.member_id,
-
-      buyer_name: booking.buyer_name,
-      buyer_email: booking.buyer_email,
-      buyer_phone: booking.buyer_phone,
-
-      adult_qty: booking.adult_qty,
-      child_qty: booking.child_qty,
-      student_qty: booking.student_qty,
-      senior_qty: booking.senior_qty,
-
-      adult_price: booking.adult_price,
-      child_price: booking.child_price,
-      student_price: booking.student_price,
-      senior_price: booking.senior_price,
-
-      total_tickets: booking.total_tickets,
-      total_amount: booking.subtotal_amount || booking.total_amount,
-
-      selected_people: selectedPeople,
-    };
-
-    sessionStorage.setItem("eventBookingData", JSON.stringify(bookingData));
-
-    navigate(`/events/${booking.event_id}/payment`);
-  };
-
-  const handleDeletePendingBooking = async (booking) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this pending booking?"
-    );
-
-    if (!confirmed) return;
-
-    try {
-      const result = await api.post("deletePendingEventBooking.php", {
-        booking_id: booking.id,
-        member_id: member?.id,
-        email: member?.email,
-      });
-
-      if (result?.success) {
-        setPendingBookings((prev) =>
-          prev.filter((item) => item.id !== booking.id)
-        );
-      } else {
-        alert(result?.message || "Unable to delete booking.");
-      }
-    } catch (error) {
-      console.error("Delete pending booking error:", error);
-      alert("Something went wrong while deleting booking.");
-    }
-  };
-
   const handleLogout = async () => {
     try {
       await msalInstance.logoutPopup({
@@ -201,6 +109,8 @@ export default function MembershipDashboard() {
     window.dispatchEvent(new Event("authChanged"));
     navigate("/login");
   };
+
+  if (!member) return null;
 
   return (
     <section className="min-h-screen bg-[#fdf6ef] px-4 py-8">
@@ -217,8 +127,8 @@ export default function MembershipDashboard() {
               </h1>
 
               <p className="mt-3 max-w-2xl text-sm leading-6 text-white/90 md:text-base">
-                Manage your memberships, event tickets, applications, and AGS
-                bookings from one place.
+                Manage your AGS memberships and applications. Visit our Events page
+                to book tickets through Ticket Tailor.
               </p>
             </div>
 
@@ -264,7 +174,7 @@ export default function MembershipDashboard() {
 
               <SidebarButton
                 icon={<FaTicketAlt />}
-                label="My Event Tickets"
+                label="Ticket Information"
                 active={activeTab === "tickets"}
                 onClick={() => setActiveTab("tickets")}
               />
@@ -289,14 +199,13 @@ export default function MembershipDashboard() {
             {activeTab === "overview" && (
               <DashboardPanel
                 title="Dashboard Overview"
-                subtitle="Please complete or delete pending event payments before starting a new booking."
+                subtitle="Manage your membership here and book event tickets through our Events page."
               >
-                <PendingEventPayments
-                  bookings={pendingBookings}
-                  loading={loadingPending}
-                  onResume={handleResumePayment}
-                  onDelete={handleDeletePendingBooking}
-                />
+                <div className="rounded-2xl border border-green-200 bg-green-50 p-5">
+                  <h3 className="font-bold text-green-800">Event Booking through Ticket Tailor</h3>
+                  <p className="mt-2 text-sm leading-6 text-gray-700">Visit our Events page for Diwali and Christmas party details, individual tickets, combos and free child registration. Choose your booking option there to continue to Ticket Tailor.</p>
+                  <button type="button" onClick={() => navigate("/events")} className="mt-4 rounded-xl bg-green-700 px-5 py-3 text-sm font-bold text-white hover:bg-green-800">View Events & Book Tickets</button>
+                </div>
 
                 <h3 className="mb-4 mt-8 text-lg font-extrabold text-gray-900">
                   Quick Actions
@@ -313,9 +222,9 @@ export default function MembershipDashboard() {
 
                   <QuickCard
                     icon={<FaTicketAlt />}
-                    title="Tickets"
-                    text="Download your paid AGS event tickets anytime."
-                    buttonText="Download"
+                    title="Ticket Information"
+                    text="Find out how to access tickets from your booking confirmation email."
+                    buttonText="View Information"
                     onClick={() => setActiveTab("tickets")}
                   />
 
@@ -330,7 +239,7 @@ export default function MembershipDashboard() {
                   <QuickCard
                     icon={<FaCalendarAlt />}
                     title="Events"
-                    text="Book upcoming AGS events using member pricing."
+                    text="View parties, ticket prices and member booking options on our Events page."
                     buttonText="Book Now"
                     onClick={() => navigate("/events")}
                   />
@@ -344,8 +253,10 @@ export default function MembershipDashboard() {
                         Helpful Reminder
                       </h3>
                       <p className="mt-1 text-sm leading-6 text-gray-700">
-                        After a successful event payment, your ticket will be
-                        emailed and also available here under My Event Tickets.
+                        Tickets for bookings made through Ticket Tailor are accessed
+                        from your booking confirmation email. These tickets are
+                        not displayed in this dashboard. Check the inbox and spam
+                        folder for the email address used when booking.
                       </p>
                     </div>
                   </div>
@@ -364,10 +275,22 @@ export default function MembershipDashboard() {
 
             {activeTab === "tickets" && (
               <DashboardPanel
-                title="My Event Tickets"
-                subtitle="Download your confirmed AGS event tickets."
+                title="Ticket Information"
+                subtitle="Your Ticket Tailor bookings and tickets are separate from your AGS membership dashboard."
               >
-                <MyEventTickets />
+                <div className="space-y-5 text-sm leading-7 text-gray-700">
+                  <section className="rounded-2xl bg-orange-50 p-5">
+                    <h3 className="text-lg font-bold text-gray-900">How to Book</h3>
+                    <p className="mt-2">Open our Events page, review the party dates and venues, then choose member or non-member booking. Ticket selection and checkout take place on Ticket Tailor.</p>
+                    <button type="button" onClick={() => navigate("/events")} className="mt-4 rounded-xl bg-[#d4503e] px-5 py-3 font-bold text-white hover:bg-[#bb4332]">View Events & Book Tickets</button>
+                  </section>
+                  <section className="rounded-2xl border border-gray-200 p-5">
+                    <h3 className="text-lg font-bold text-gray-900">Already Booked?</h3>
+                    <p className="mt-2">Use the ticket link in the Ticket Tailor confirmation email sent to the address used for your booking. Check your spam or junk folder if you cannot find it.</p>
+                    <p className="mt-2">For a Diwali and Christmas combo, use the ticket for the correct party. Every child under 10 must also be registered for each party they attend.</p>
+                    <p className="mt-2">If you still need help, contact <a href="mailto:info@airdriegujaratisamaj.ca" className="break-words font-semibold text-[#d4503e] underline">info@airdriegujaratisamaj.ca</a> with your booking name, booking email and order reference if available.</p>
+                  </section>
+                </div>
               </DashboardPanel>
             )}
 
@@ -530,108 +453,3 @@ function MembershipTypeCard({ item, onClick }) {
   );
 }
 
-function PendingEventPayments({ bookings, loading, onResume, onDelete }) {
-  if (loading) {
-    return (
-      <div className="rounded-3xl border border-orange-200 bg-orange-50 p-5">
-        <p className="font-bold text-orange-700">
-          Checking pending event payments...
-        </p>
-      </div>
-    );
-  }
-
-  if (!bookings.length) {
-    return (
-      <div className="rounded-3xl border border-green-200 bg-green-50 p-5">
-        <h3 className="text-lg font-extrabold text-green-800">
-          No Pending Event Payments
-        </h3>
-        <p className="mt-1 text-sm text-green-700">
-          You do not have any unfinished event bookings right now.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-3xl border-2 border-orange-300 bg-[#fff7ed] p-5 shadow-sm">
-      <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h3 className="text-xl font-extrabold text-orange-900">
-            Action Required: Pending Event Payment
-          </h3>
-          <p className="mt-1 text-sm text-orange-700">
-            Please resume payment or delete the booking if you do not want to
-            continue.
-          </p>
-        </div>
-
-        <span className="w-fit rounded-full bg-orange-600 px-4 py-2 text-sm font-bold text-white">
-          {bookings.length} Pending
-        </span>
-      </div>
-
-      <div className="space-y-3">
-        {bookings.map((booking) => (
-          <div
-            key={booking.id}
-            className="rounded-2xl border border-orange-200 bg-white p-4 shadow-sm"
-          >
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-lg font-extrabold text-gray-900">
-                  {booking.event_title || "AGS Event"}
-                </p>
-
-                <div className="mt-2 grid gap-1 text-sm text-gray-600 sm:grid-cols-2">
-                  <p>
-                    <span className="font-bold">Booking #:</span>{" "}
-                    {booking.booking_number}
-                  </p>
-
-                  <p>
-                    <span className="font-bold">Amount:</span>{" "}
-                    ${Number(booking.total_amount || 0).toFixed(2)}
-                  </p>
-
-                  {booking.event_date && (
-                    <p>
-                      <span className="font-bold">Date:</span>{" "}
-                      {booking.event_date}
-                    </p>
-                  )}
-
-                  {booking.location && (
-                    <p>
-                      <span className="font-bold">Location:</span>{" "}
-                      {booking.location}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2 sm:flex-row lg:min-w-[300px]">
-                <button
-                  type="button"
-                  onClick={() => onResume(booking)}
-                  className="flex-1 rounded-xl bg-[#d4503e] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#bb4332]"
-                >
-                  Resume Payment
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => onDelete(booking)}
-                  className="flex-1 rounded-xl border border-red-300 bg-white px-5 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}

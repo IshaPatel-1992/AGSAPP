@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import logo from "../assets/logo/ags-logo-new-2026.png";
+import logo from "../assets/logo/ags-logo-new-2026-Sp.png";
 import { FaBars, FaTimes, FaChevronDown } from "react-icons/fa";
 import AuthDropdown from "./AuthDropdown";
 

@@ -1,18 +1,20 @@
 {
   "files": {
-    "main.css": "/static/css/main.c0fefce6.css",
-    "main.js": "/static/js/main.3379846c.js",
-    "static/media/NavratriBannerResized-2026.png": "/static/media/NavratriBannerResized-2026.05cf7a1f7560880b6d97.png",
+    "main.css": "/static/css/main.e41a53f4.css",
+    "main.js": "/static/js/main.f4e2ed98.js",
+    "static/media/Diwali1.jpg": "/static/media/Diwali1.c85b0ce9b2b6dbafea3a.jpg",
+    "static/media/DiwaliandChristmasCelebrations2026.png": "/static/media/DiwaliandChristmasCelebrations2026.bbc823b3f08ec06c204c.png",
+    "static/media/ags-logo-new-2026-Sp.png": "/static/media/ags-logo-new-2026-Sp.02a25d24b9d0a485331e.png",
     "static/media/shutterstock_2506871797.jpg": "/static/media/shutterstock_2506871797.8269a7cf64dadd375c8e.jpg",
-    "static/media/ags-logo-new-2026.png": "/static/media/ags-logo-new-2026.1f1e0cb24c1463fca78a.png",
+    "static/media/ChristmasNewYearParty.jpg": "/static/media/ChristmasNewYearParty.9c71cb8f9daa53b3045e.jpg",
     "static/media/Team1.jpg": "/static/media/Team1.e89700f3aa3caf7e96dd.jpg",
     "static/media/Airdrie-Samaj-Logo-png.png": "/static/media/Airdrie-Samaj-Logo-png.9683689adbfa5263fd17.png",
     "index.html": "/index.html",
-    "main.c0fefce6.css.map": "/static/css/main.c0fefce6.css.map",
-    "main.3379846c.js.map": "/static/js/main.3379846c.js.map"
+    "main.e41a53f4.css.map": "/static/css/main.e41a53f4.css.map",
+    "main.f4e2ed98.js.map": "/static/js/main.f4e2ed98.js.map"
   },
   "entrypoints": [
-    "static/css/main.c0fefce6.css",
-    "static/js/main.3379846c.js"
+    "static/css/main.e41a53f4.css",
+    "static/js/main.f4e2ed98.js"
   ]
 }
